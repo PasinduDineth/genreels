@@ -1,0 +1,32 @@
+{
+  "name": "@genreels/video",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "exports": {
+    "./remotion": "./src/index.ts",
+    "./schema": "./src/lib/render-schema.ts"
+  },
+  "scripts": {
+    "dev": "remotion studio src/index.ts",
+    "build": "tsc --noEmit -p tsconfig.json",
+    "render": "remotion render src/index.ts GenreelsSilentStory out/genreels-silent-story.mp4",
+    "test:schemas": "tsx --test src/lib/render-schema.test.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "remotion": "^4.0.340",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@remotion/cli": "^4.0.340",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@types/node": "^24.0.1",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
+  }
+}

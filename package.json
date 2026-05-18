@@ -1,0 +1,25 @@
+{
+  "name": "genreels",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev --workspace @genreels/web",
+    "dev:server": "npm run dev --workspace @genreels/server",
+    "dev:video": "npm run dev --workspace @genreels/video",
+    "build:web": "npm run build --workspace @genreels/web",
+    "build:server": "npm run build --workspace @genreels/server",
+    "build:video": "npm run build --workspace @genreels/video",
+    "build": "npm run build:web && npm run build:server && npm run build:video",
+    "typecheck:web": "npm run typecheck --workspace @genreels/web",
+    "typecheck:server": "npm run typecheck --workspace @genreels/server",
+    "typecheck:video": "npm run typecheck --workspace @genreels/video",
+    "typecheck": "npm run typecheck:web && npm run typecheck:server && npm run typecheck:video"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
