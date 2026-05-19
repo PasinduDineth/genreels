@@ -45,6 +45,7 @@ type KickoffRenderInput = {
 type RenderCaption = {
   endMs?: unknown;
   startMs?: unknown;
+  timestampMs?: unknown;
 };
 
 type RenderRecord = {
@@ -83,10 +84,14 @@ const getCaptionDurationInSeconds = (captions: unknown[]) => {
   const lastTimestampMs = captions
     .filter((value): value is RenderCaption => typeof value === 'object' && value !== null)
     .reduce((maxValue, caption) => {
+      const timestampMs =
+        typeof caption.timestampMs === 'number' && Number.isFinite(caption.timestampMs)
+          ? caption.timestampMs
+          : null;
       const endMs = typeof caption.endMs === 'number' && Number.isFinite(caption.endMs) ? caption.endMs : null;
       const startMs =
         typeof caption.startMs === 'number' && Number.isFinite(caption.startMs) ? caption.startMs : null;
-      const captionEnd = endMs ?? startMs;
+      const captionEnd = timestampMs ?? endMs ?? startMs;
 
       return captionEnd && captionEnd > maxValue ? captionEnd : maxValue;
     }, 0);

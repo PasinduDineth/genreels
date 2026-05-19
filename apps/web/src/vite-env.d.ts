@@ -8,7 +8,9 @@ declare global {
           text: string,
           options?: {
             provider?: string;
+            model?: string;
             voice?: string;
+            instructions?: string;
           },
         ) => Promise<HTMLAudioElement>;
       };

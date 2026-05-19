@@ -58,6 +58,21 @@ const getMotionStyle = (
 
 const fallbackInput = DEFAULT_RENDER_INPUT;
 
+const normalizeCaptionForRender = (caption: RenderInput["captions"][number]) => {
+  const timestampMs =
+    typeof caption.timestampMs === "number" && Number.isFinite(caption.timestampMs)
+      ? Math.max(caption.timestampMs, 0)
+      : null;
+  const startMs = timestampMs ?? Math.max(caption.startMs, 0);
+  const endMs = Math.max(caption.endMs, startMs);
+
+  return {
+    ...caption,
+    endMs,
+    startMs,
+  };
+};
+
 export const GenreelsSilentStory = ({
   audioUrl = fallbackInput.audioUrl,
   captions = fallbackInput.captions,
@@ -83,7 +98,7 @@ export const GenreelsSilentStory = ({
     }
 
     return createTikTokStyleCaptions({
-      captions,
+      captions: captions.map(normalizeCaptionForRender),
       combineTokensWithinMilliseconds: 200,
     }).pages;
   }, [captions]);

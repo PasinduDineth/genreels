@@ -200,7 +200,10 @@ export function useGenerator() {
       }
 
       const audioElement = await window.puter.ai.txt2speech(narrativeResponse.narrative, {
-        provider: 'openai',
+        provider: 'gemini',
+        model: 'gemini-2.5-flash-preview-tts',
+        voice: 'Algieba',
+        instructions: 'danger narrative for viral tiktok videos',
       });
       await new Promise<void>((resolve, reject) => {
         if (Number.isFinite(audioElement.duration) && audioElement.duration > 0) {
