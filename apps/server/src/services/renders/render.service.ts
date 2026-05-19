@@ -3,6 +3,7 @@ import { renderMedia, selectComposition } from '@remotion/renderer';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { parseFile } from 'music-metadata';
 import { AppError } from '../../lib/app-error.js';
 import { env } from '../../config/env.js';
 
@@ -41,6 +42,11 @@ type KickoffRenderInput = {
   topic: string;
 };
 
+type RenderCaption = {
+  endMs?: unknown;
+  startMs?: unknown;
+};
+
 type RenderRecord = {
   createdAt: string;
   imageCount: number;
@@ -61,6 +67,70 @@ const sanitizeSegment = (value: string) => {
 };
 
 const normalizeTopic = (value: string) => value.trim() || 'Untitled mystery';
+
+const toManagedAudioFilePath = (audioUrl: string) => {
+  const parsed = new URL(audioUrl);
+  const publicBaseUrl = env.publicBaseUrl.replace(/\/$/, '');
+
+  if (parsed.origin !== publicBaseUrl || !parsed.pathname.startsWith('/generated-audio/')) {
+    return null;
+  }
+
+  return path.join(workspaceRoot, 'generated-audio', path.basename(parsed.pathname));
+};
+
+const getCaptionDurationInSeconds = (captions: unknown[]) => {
+  const lastTimestampMs = captions
+    .filter((value): value is RenderCaption => typeof value === 'object' && value !== null)
+    .reduce((maxValue, caption) => {
+      const endMs = typeof caption.endMs === 'number' && Number.isFinite(caption.endMs) ? caption.endMs : null;
+      const startMs =
+        typeof caption.startMs === 'number' && Number.isFinite(caption.startMs) ? caption.startMs : null;
+      const captionEnd = endMs ?? startMs;
+
+      return captionEnd && captionEnd > maxValue ? captionEnd : maxValue;
+    }, 0);
+
+  return lastTimestampMs > 0 ? lastTimestampMs / 1000 : null;
+};
+
+const resolveRenderDurationInSeconds = async ({
+  audioDurationInSeconds,
+  audioUrl,
+  captions,
+}: {
+  audioDurationInSeconds: number | null;
+  audioUrl: string | null;
+  captions: unknown[];
+}) => {
+  if (audioUrl) {
+    const localAudioPath = toManagedAudioFilePath(audioUrl);
+
+    if (localAudioPath) {
+      try {
+        const metadata = await parseFile(localAudioPath);
+        const actualDuration = metadata.format.duration;
+
+        if (typeof actualDuration === 'number' && Number.isFinite(actualDuration) && actualDuration > 0) {
+          return actualDuration;
+        }
+      } catch (error) {
+        console.warn('Failed to resolve audio duration from file metadata.', error);
+      }
+    }
+  }
+
+  const captionDurationInSeconds = getCaptionDurationInSeconds(captions);
+  if (captionDurationInSeconds && captionDurationInSeconds > 0) {
+    return captionDurationInSeconds;
+  }
+
+  if (audioDurationInSeconds && audioDurationInSeconds > 0) {
+    return audioDurationInSeconds;
+  }
+
+  return null;
+};
 
 const normalizeImages = (images: unknown[]) => {
   const normalized = images
@@ -123,6 +193,7 @@ export const kickoffRender = async ({
     typeof audioUrl === 'string' && audioUrl.trim().length > 0
       ? audioUrl.trim()
       : null;
+  const normalizedCaptions = Array.isArray(captions) ? captions : [];
   const normalizedTopic = normalizeTopic(topic);
   const normalizedImages = normalizeImages(images);
   const renderId = `render_${Date.now()}`;
@@ -142,11 +213,16 @@ export const kickoffRender = async ({
     await ensureRenderedDirectory();
 
     const bundleLocation = await getBundleLocation();
-
-    const inputProps = {
+    const resolvedDurationInSeconds = await resolveRenderDurationInSeconds({
       audioDurationInSeconds: normalizedAudioDurationInSeconds,
       audioUrl: normalizedAudioUrl,
-      captions: Array.isArray(captions) ? captions : [],
+      captions: normalizedCaptions,
+    });
+
+    const inputProps = {
+      audioDurationInSeconds: resolvedDurationInSeconds,
+      audioUrl: normalizedAudioUrl,
+      captions: normalizedCaptions,
       scenes: normalizedImages,
       topic: normalizedTopic,
     };
@@ -181,7 +257,7 @@ export const kickoffRender = async ({
       renderId,
       status: result.status,
       video: {
-        durationInSeconds: normalizedAudioDurationInSeconds ?? normalizedImages.length * 3,
+        durationInSeconds: resolvedDurationInSeconds ?? normalizedImages.length * 3,
         url: outputUrl,
       },
     };
