@@ -23,12 +23,14 @@ type PollinationsMessage = {
 
 const createNarrativeSystemMessage = () => {
   return [
-    'Write one documentary-style true-story narrative between 150 and 160 words.',
+    'Write one documentary-style true-story narrative between 150 and 180 words.',
+    'Target about 165 to 175 words for safety.',
     'The first sentence must be a punchy hook like a strong YouTube or TikTok opener.',
     'The paragraph must sound like real narration, not like instructions about narration.',
     'Use concrete facts, places, people, actions, and consequences whenever they are known.',
     'Make it chronological enough that 10 sequential visual scenes can be extracted from it.',
     'Keep the tone vivid, educational, and cinematic, but grounded in reality.',
+    'Before responding, count the words and make sure the final paragraph stays within the required range.',
     'Do not use meta phrasing such as "this short", "the viewer", "the goal is", "by the end", or "this story opens with".',
     'Do not mention hashtags, scene numbers, emojis, bullet points, or markdown.',
     'Return only one paragraph.',

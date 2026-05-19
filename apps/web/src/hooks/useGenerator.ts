@@ -7,6 +7,7 @@ import {
 import {apiClient} from '../lib/api';
 import type {
   AppState,
+  BundleImportResponse,
   GenerationStatus,
   ImageAsset,
   NarrativeAsset,
@@ -26,6 +27,7 @@ type Action =
   | {type: 'prompts/set'; payload: PromptItem[]}
   | {type: 'images/set'; payload: ImageAsset[]}
   | {type: 'video/set'; payload: VideoAsset | null}
+  | {type: 'bundle/load'; payload: BundleImportResponse}
   | {type: 'status/push'; payload: StatusMessage}
   | {type: 'status/clear'};
 
@@ -94,6 +96,20 @@ function reducer(state: AppState, action: Action): AppState {
       return {
         ...state,
         video: action.payload,
+      };
+    case 'bundle/load':
+      return {
+        ...state,
+        topic: action.payload.topic,
+        narrative: action.payload.narrative,
+        prompts: action.payload.prompts,
+        images: action.payload.images,
+        video: null,
+        audioStatus: action.payload.narrative.audioUrl ? 'success' : 'idle',
+        narrativeStatus: 'success',
+        promptStatus: action.payload.prompts.length ? 'success' : 'idle',
+        imageStatus: action.payload.images.length ? 'success' : 'idle',
+        renderStatus: 'idle',
       };
     case 'status/push':
       return {
@@ -221,6 +237,7 @@ export function useGenerator() {
           payload: {
             audioDurationInSeconds: audioElement.duration,
             audioUrl: uploadedAudio.audioUrl,
+            captions: uploadedAudio.captions,
             text: narrativeResponse.narrative,
             wordCount: narrativeResponse.wordCount,
           },
@@ -281,6 +298,7 @@ export function useGenerator() {
       const response = await apiClient.renderVideo({
         audioDurationInSeconds: state.narrative?.audioDurationInSeconds,
         audioUrl: state.narrative?.audioUrl,
+        captions: state.narrative?.captions,
         topic: state.topic.trim(),
         images: state.images,
       });
@@ -299,14 +317,70 @@ export function useGenerator() {
     }
   }, [pushStatus, state.images, state.narrative, state.topic]);
 
+  const downloadBundle = useCallback(async () => {
+    if (!state.narrative || !state.images.length) {
+      pushStatus('error', 'Generate or import a full story package before downloading a bundle.');
+      return;
+    }
+
+    pushStatus('info', 'Packaging audio, images, captions, prompts, and render metadata into a zip.');
+
+    try {
+      const {blob, fileName} = await apiClient.exportBundle({
+        images: state.images,
+        narrative: state.narrative,
+        prompts: state.prompts,
+        topic: state.topic.trim(),
+      });
+
+      const objectUrl = window.URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = objectUrl;
+      anchor.download = fileName;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.URL.revokeObjectURL(objectUrl);
+
+      pushStatus('success', `Downloaded bundle: ${fileName}`);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unexpected bundle export error.';
+
+      pushStatus('error', message);
+    }
+  }, [pushStatus, state.images, state.narrative, state.prompts, state.topic]);
+
+  const importBundle = useCallback(async (bundleFile: File) => {
+    pushStatus('info', `Importing bundle: ${bundleFile.name}`);
+
+    try {
+      const response = await apiClient.importBundle(bundleFile);
+
+      startTransition(() => {
+        dispatch({type: 'bundle/load', payload: response});
+      });
+
+      pushStatus('success', 'Bundle imported. You can render the video immediately.');
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unexpected bundle import error.';
+
+      pushStatus('error', message);
+    }
+  }, [pushStatus]);
+
   return {
     state,
     actions: {
+      downloadBundle,
       generateNarrativePromptsAndImages,
+      importBundle,
       renderVideo,
       setTopic,
     },
     derived: {
+      canDownloadBundle: Boolean(state.narrative && state.images.length === 10),
       canGenerate,
       canRender,
     },

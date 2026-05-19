@@ -2,7 +2,7 @@ import { AppError } from '../../lib/app-error.js';
 import { pollinationsClient } from '../pollinations/pollinations.client.js';
 
 const MIN_WORDS = 150;
-const MAX_WORDS = 160;
+const MAX_WORDS = 180;
 const META_PATTERNS = [
   /\bthis short\b/i,
   /\bthe viewer\b/i,

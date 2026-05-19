@@ -1,18 +1,24 @@
+import {useEffect, useMemo, useState} from "react";
 import {
   AbsoluteFill,
   Audio,
   Img,
   Sequence,
+  continueRender,
+  delayRender,
   interpolate,
   staticFile,
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
+import {createTikTokStyleCaptions} from "@remotion/captions";
 import {
   DEFAULT_RENDER_INPUT,
   SceneMotion,
   type RenderInput,
 } from "../lib/render-schema";
+import {CaptionPage} from "../components/CaptionPage";
+import {loadFont} from "../load-font";
 
 const getMotionStyle = (
   motion: SceneMotion,
@@ -54,10 +60,33 @@ const fallbackInput = DEFAULT_RENDER_INPUT;
 
 export const GenreelsSilentStory = ({
   audioUrl = fallbackInput.audioUrl,
+  captions = fallbackInput.captions,
   scenes = fallbackInput.scenes,
 }: RenderInput) => {
   const frame = useCurrentFrame();
-  const {durationInFrames} = useVideoConfig();
+  const {durationInFrames, fps} = useVideoConfig();
+  const [fontHandle] = useState(() => delayRender());
+
+  useEffect(() => {
+    loadFont()
+      .catch((error) => {
+        console.error("Caption font loading failed", error);
+      })
+      .finally(() => {
+        continueRender(fontHandle);
+      });
+  }, [fontHandle]);
+
+  const captionPages = useMemo(() => {
+    if (!captions.length) {
+      return [];
+    }
+
+    return createTikTokStyleCaptions({
+      captions,
+      combineTokensWithinMilliseconds: 200,
+    }).pages;
+  }, [captions]);
 
   return (
     <AbsoluteFill style={{backgroundColor: "#05070d"}}>
@@ -82,6 +111,24 @@ export const GenreelsSilentStory = ({
               imageSrc={imageSrc}
               motion={scene.motion}
             />
+          </Sequence>
+        );
+      })}
+      {captionPages.map((page, index) => {
+        const nextPage = captionPages[index + 1] ?? null;
+        const captionStartFrame = Math.max(0, Math.floor((page.startMs / 1000) * fps));
+        const captionEndFrame = nextPage
+          ? Math.ceil((nextPage.startMs / 1000) * fps)
+          : durationInFrames;
+        const captionDurationInFrames = Math.max(captionEndFrame - captionStartFrame, 1);
+
+        return (
+          <Sequence
+            key={`${page.startMs}-${index}`}
+            from={captionStartFrame}
+            durationInFrames={captionDurationInFrames}
+          >
+            <CaptionPage page={page} />
           </Sequence>
         );
       })}

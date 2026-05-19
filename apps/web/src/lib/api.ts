@@ -4,6 +4,8 @@ import {
   USE_MOCKS,
 } from './config';
 import type {
+  BundleExportRequest,
+  BundleImportResponse,
   ImageAsset,
   ImageGenerationRequest,
   ImageGenerationResponse,
@@ -12,6 +14,7 @@ import type {
   PromptGenerationRequest,
   PromptGenerationResponse,
   PromptItem,
+  CaptionItem,
   VideoRenderRequest,
   VideoRenderResponse,
 } from '../types';
@@ -110,7 +113,7 @@ export const apiClient = {
   async uploadNarrationAudio(
     topic: string,
     audioBlob: Blob,
-  ): Promise<{ audioUrl: string; fileName: string }> {
+  ): Promise<{ audioUrl: string; captions: CaptionItem[]; fileName: string }> {
     const response = await fetch(
       `${API_BASE_URL}/audio/upload?topic=${encodeURIComponent(topic)}`,
       {
@@ -127,7 +130,7 @@ export const apiClient = {
       throw new Error(text || `Audio upload failed with status ${response.status}`);
     }
 
-    return (await response.json()) as { audioUrl: string; fileName: string };
+    return (await response.json()) as { audioUrl: string; captions: CaptionItem[]; fileName: string };
   },
 
   async generateNarrative(
@@ -193,5 +196,46 @@ export const apiClient = {
       method: 'POST',
       body: JSON.stringify(payload),
     });
+  },
+
+  async exportBundle(payload: BundleExportRequest): Promise<{blob: Blob; fileName: string}> {
+    const response = await fetch(`${API_BASE_URL}/bundle/export`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(text || `Bundle export failed with status ${response.status}`);
+    }
+
+    const blob = await response.blob();
+    const disposition = response.headers.get('content-disposition') ?? '';
+    const fileNameMatch = disposition.match(/filename="([^"]+)"/i);
+
+    return {
+      blob,
+      fileName: fileNameMatch?.[1] ?? 'genreels-bundle.zip',
+    };
+  },
+
+  async importBundle(bundleFile: File): Promise<BundleImportResponse> {
+    const response = await fetch(`${API_BASE_URL}/bundle/import`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': bundleFile.type || 'application/zip',
+      },
+      body: bundleFile,
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(text || `Bundle import failed with status ${response.status}`);
+    }
+
+    return (await response.json()) as BundleImportResponse;
   },
 };

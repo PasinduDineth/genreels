@@ -16,6 +16,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@remotion/captions": "^4.0.462",
+    "@remotion/layout-utils": "^4.0.462",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "remotion": "^4.0.340",
@@ -23,9 +25,9 @@
   },
   "devDependencies": {
     "@remotion/cli": "^4.0.340",
+    "@types/node": "^24.0.1",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
-    "@types/node": "^24.0.1",
     "tsx": "^4.19.4",
     "typescript": "^5.8.3"
   }

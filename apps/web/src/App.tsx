@@ -38,7 +38,11 @@ export default function App() {
         <ImageGallery images={state.images} />
 
         <VideoPreview
+          canDownloadBundle={derived.canDownloadBundle}
           canRender={derived.canRender}
+          isBundleReady={state.images.length === 10 && Boolean(state.narrative)}
+          onDownloadBundle={actions.downloadBundle}
+          onImportBundle={actions.importBundle}
           isRendering={state.renderStatus === 'loading'}
           onRender={actions.renderVideo}
           video={state.video}

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 
 import { createAudioRouter } from './audio.routes.js';
+import { createBundleRouter } from './bundles.routes.js';
 import { createHealthRouter } from './health.routes.js';
 import { createImagesRouter } from './images.routes.js';
 import { createNarrativeRouter } from './narratives.routes.js';
@@ -12,6 +13,8 @@ export const createApiRouter = () => {
 
   router.use('/health', createHealthRouter());
   router.use('/audio', createAudioRouter());
+  router.use('/bundle', createBundleRouter());
+  router.use('/bundles', createBundleRouter());
   router.use('/narrative', createNarrativeRouter());
   router.use('/narratives', createNarrativeRouter());
   router.use('/prompts', createPromptRouter());

@@ -10,10 +10,11 @@ export const createRenderRouter = () => {
     const audioDurationInSeconds =
       typeof request.body?.audioDurationInSeconds === 'number' ? request.body.audioDurationInSeconds : undefined;
     const audioUrl = typeof request.body?.audioUrl === 'string' ? request.body.audioUrl : undefined;
+    const captions = Array.isArray(request.body?.captions) ? request.body.captions : undefined;
     const topic = typeof request.body?.topic === 'string' ? request.body.topic : '';
     const images = Array.isArray(request.body?.images) ? request.body.images : [];
 
-    const result = await kickoffRender({ audioDurationInSeconds, audioUrl, images, topic });
+    const result = await kickoffRender({ audioDurationInSeconds, audioUrl, captions, images, topic });
 
     response.json(result);
   });

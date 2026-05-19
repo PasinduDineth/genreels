@@ -8,3 +8,10 @@ build
 coverage
 tmp
 rendered
+generated-audio/*
+!generated-audio/.gitkeep
+generated-images/*
+!generated-images/.gitkeep
+whisper.cpp
+whisper.cpp-bin
+whisper.cpp-models

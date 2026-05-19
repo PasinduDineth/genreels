@@ -24,15 +24,25 @@ export const RenderSceneSchema = z.object({
   motion: SceneMotionSchema.default("push-in"),
 });
 
+export const CaptionSchema = z.object({
+  confidence: z.number().nullable(),
+  endMs: z.number().nonnegative(),
+  startMs: z.number().nonnegative(),
+  text: z.string(),
+  timestampMs: z.number().nullable(),
+});
+
 export const RenderInputSchema = z.object({
   audioDurationInSeconds: z.number().positive().nullable().optional(),
   audioUrl: z.string().min(1).nullable().optional(),
+  captions: z.array(CaptionSchema).optional().default([]),
   topic: z.string().min(1),
   scenes: z
     .array(RenderSceneSchema)
     .length(TOTAL_SCENES, `Exactly ${TOTAL_SCENES} scenes are required.`),
 });
 
+export type Caption = z.infer<typeof CaptionSchema>;
 export type RenderScene = z.infer<typeof RenderSceneSchema>;
 export type RenderInput = z.infer<typeof RenderInputSchema>;
 
@@ -52,6 +62,7 @@ const defaultMotions: SceneMotion[] = [
 export const DEFAULT_RENDER_INPUT: RenderInput = {
   audioDurationInSeconds: null,
   audioUrl: null,
+  captions: [],
   topic: "The Dyatlov Pass Incident",
   scenes: Array.from({length: TOTAL_SCENES}, (_, index) => ({
     id: `scene-${index + 1}`,

@@ -3,8 +3,17 @@ export type GenerationStatus = 'idle' | 'loading' | 'success' | 'error';
 export interface NarrativeAsset {
   audioDurationInSeconds?: number;
   audioUrl?: string;
+  captions?: CaptionItem[];
   text: string;
   wordCount: number;
+}
+
+export interface CaptionItem {
+  confidence: number | null;
+  endMs: number;
+  startMs: number;
+  text: string;
+  timestampMs: number | null;
 }
 
 export interface PromptItem {
@@ -62,12 +71,27 @@ export interface ImageGenerationResponse {
 export interface VideoRenderRequest {
   audioDurationInSeconds?: number;
   audioUrl?: string;
+  captions?: CaptionItem[];
   topic: string;
   images: ImageAsset[];
 }
 
 export interface VideoRenderResponse {
   video: VideoAsset;
+}
+
+export interface BundleExportRequest {
+  images: ImageAsset[];
+  narrative: NarrativeAsset;
+  prompts: PromptItem[];
+  topic: string;
+}
+
+export interface BundleImportResponse {
+  images: ImageAsset[];
+  narrative: NarrativeAsset;
+  prompts: PromptItem[];
+  topic: string;
 }
 
 export interface AppState {

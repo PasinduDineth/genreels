@@ -12,10 +12,12 @@
   },
   "dependencies": {
     "@remotion/bundler": "^4.0.340",
+    "@remotion/install-whisper-cpp": "^4.0.462",
     "@remotion/renderer": "^4.0.340",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
-    "express": "^4.19.2"
+    "express": "^4.19.2",
+    "jszip": "^3.10.1"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",

@@ -10,6 +10,7 @@ test("parseRenderInput accepts the default payload", () => {
   const parsed = parseRenderInput(DEFAULT_RENDER_INPUT);
 
   assert.equal(parsed.scenes.length, TOTAL_SCENES);
+  assert.deepEqual(parsed.captions, []);
   assert.equal(parsed.topic, DEFAULT_RENDER_INPUT.topic);
 });
 

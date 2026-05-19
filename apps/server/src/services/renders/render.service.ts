@@ -36,6 +36,7 @@ type RenderImage = {
 type KickoffRenderInput = {
   audioDurationInSeconds?: number;
   audioUrl?: string;
+  captions?: unknown[];
   images: unknown[];
   topic: string;
 };
@@ -110,6 +111,7 @@ const getBundleLocation = () => {
 export const kickoffRender = async ({
   audioDurationInSeconds,
   audioUrl,
+  captions,
   images,
   topic,
 }: KickoffRenderInput) => {
@@ -144,6 +146,7 @@ export const kickoffRender = async ({
     const inputProps = {
       audioDurationInSeconds: normalizedAudioDurationInSeconds,
       audioUrl: normalizedAudioUrl,
+      captions: Array.isArray(captions) ? captions : [],
       scenes: normalizedImages,
       topic: normalizedTopic,
     };
