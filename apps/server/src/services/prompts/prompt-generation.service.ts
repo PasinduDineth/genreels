@@ -1,7 +1,6 @@
 import { AppError } from '../../lib/app-error.js';
 import { pollinationsClient } from '../pollinations/pollinations.client.js';
 import {
-  getPromptConstraintSuffix,
   normalizePromptScene,
   splitPromptCandidates,
 } from './prompt-constraints.js';
@@ -20,7 +19,7 @@ const ensureTopic = (topic: string) => {
 
 const createFallbackPrompt = (topic: string, index: number) => {
   return normalizePromptScene(
-    `Scene ${index + 1} for ${topic}: a tense and mysterious historical moment frozen at the peak of suspense, ${getPromptConstraintSuffix()}`,
+    `Scene ${index + 1} for ${topic}: a tense and mysterious historical moment frozen at the peak of suspense`,
   );
 };
 

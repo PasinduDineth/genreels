@@ -1,6 +1,6 @@
 import { env } from '../../config/env.js';
 import { AppError } from '../../lib/app-error.js';
-import { normalizePromptScene } from '../prompts/prompt-constraints.js';
+import { appendPromptConstraintSuffix, normalizePromptScene } from '../prompts/prompt-constraints.js';
 import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -168,9 +168,10 @@ export const generateImagesFromPrompts = async (prompts: unknown[]) => {
   }
 
   await ensureGeneratedImagesDirectory();
+  const finalImagePrompts = normalizedPrompts.map(appendPromptConstraintSuffix);
 
   const imageUrls: string[] = [];
-  for (const [index, prompt] of normalizedPrompts.entries()) {
+  for (const [index, prompt] of finalImagePrompts.entries()) {
     imageUrls.push(await generateMiniMaxImage(prompt, index));
   }
 

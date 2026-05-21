@@ -1,26 +1,17 @@
-const REQUIRED_PHRASES = [
-  'modern action cartoon style',
-  'vertical 9:16 composition',
-  'highly cinematic lighting and atmosphere',
-  'detailed environments and dramatic composition',
-  'no text',
-  'no captions',
-  'no speech bubbles',
-  'no collage',
-  'no split screens',
-  'no multiple scenes in one canvas',
-  'edge-to-edge full-frame composition',
-  'no borders, margins, or padding',
-  'safe wording that does not violate image generation policies',
-  'only one clear moment or scene',
-] as const;
+const IMAGE_PROMPT_STYLE_SUFFIX =
+  'stylized 2D animated comic-book illustration, cel-shaded rendering, muted blue-gray cinematic palette, clean linework, expressive characters, vertical 9:16 composition, highly cinematic lighting and atmosphere, detailed environments and dramatic composition, no text, no captions, no speech bubbles, no collage, no split screens, no multiple scenes in one canvas, edge-to-edge full-frame composition, no borders margins or padding, safe wording, one clear moment or scene';
 
 const collapseWhitespace = (value: string) => value.replace(/\s+/g, ' ').trim();
 
 const stripListPrefix = (value: string) => value.replace(/^\s*(?:\d+[\).\]-]\s*|[-*]\s*)/, '');
 
 export const getPromptConstraintSuffix = () => {
-  return REQUIRED_PHRASES.join(', ');
+  return IMAGE_PROMPT_STYLE_SUFFIX;
+};
+
+export const appendPromptConstraintSuffix = (value: string) => {
+  const normalized = collapseWhitespace(value).replace(/[;,.:\-\s]*$/g, '');
+  return collapseWhitespace(`${normalized}, ${IMAGE_PROMPT_STYLE_SUFFIX}`);
 };
 
 export const normalizePromptScene = (value: string) => {
@@ -34,13 +25,6 @@ export const normalizePromptScene = (value: string) => {
     .replace(/\bno text or captions\b/gi, 'no text, no captions')
     .replace(/\bno text or speech bubbles\b/gi, 'no text, no speech bubbles')
     .replace(/[;,.:\-\s]*$/g, '');
-
-  const lower = normalized.toLowerCase();
-  const missing = REQUIRED_PHRASES.filter((phrase) => !lower.includes(phrase.toLowerCase()));
-
-  if (missing.length > 0) {
-    normalized = `${normalized}, ${missing.join(', ')}`;
-  }
 
   return collapseWhitespace(normalized);
 };

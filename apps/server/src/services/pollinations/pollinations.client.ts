@@ -40,7 +40,7 @@ const createPromptGeneratorSystemMessage = () => {
     'Each prompt should capture a different beat from the narrative, not repeat the same moment with slight wording changes.',
     'Use concrete visual details from the narrative: locations, objects, actions, people, aftermath, and evidence when available.',
     'Do not use abstract narration language such as "the viewer", "this story", "the mystery deepens", or "history remembers".',
-    'Every prompt must include all of the following constraints naturally: stylized 2D animated comic-book illustration, cel-shaded rendering, muted blue-gray cinematic palette, clean linework, expressive characters, vertical 9:16 composition, highly cinematic lighting and atmosphere, detailed environments and dramatic composition, no text, no captions, no speech bubbles, no collage, no split screens, no multiple scenes in one canvas, edge-to-edge full-frame composition, no borders margins or padding, safe wording, one clear moment or scene.',
+    'Focus on scene content only and do not include style boilerplate, camera-format boilerplate, or safety boilerplate in the prompt text.',
     'Avoid graphic gore, hate, sexual content, brands, watermarks, copyrighted characters, and unsafe instructions.',
     'Return only the 10 prompts.',
   ].join(' ');
