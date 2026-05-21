@@ -1,19 +1,14 @@
 import { env } from '../../config/env.js';
 import { AppError } from '../../lib/app-error.js';
 
-const buildImageUrl = (prompt: string) => {
-  const baseUrl = env.pollinationsImageBaseUrl.replace(/\/$/, '');
-  const url = new URL(`${baseUrl}/${encodeURIComponent(prompt)}`);
-  url.searchParams.set('model', env.pollinationsImageModel);
-  url.searchParams.set('width', '1080');
-  url.searchParams.set('height', '1920');
-  url.searchParams.set('nologo', 'true');
-  return url.toString();
-};
-
 type PromptGenerationRequest = {
   topic?: string;
   narrative?: string;
+};
+
+type NarrativeGenerationRequest = {
+  topic: string;
+  feedback?: string;
 };
 
 type PollinationsMessage = {
@@ -45,68 +40,94 @@ const createPromptGeneratorSystemMessage = () => {
     'Each prompt should capture a different beat from the narrative, not repeat the same moment with slight wording changes.',
     'Use concrete visual details from the narrative: locations, objects, actions, people, aftermath, and evidence when available.',
     'Do not use abstract narration language such as "the viewer", "this story", "the mystery deepens", or "history remembers".',
-    'Every prompt must include all of the following constraints naturally: modern action cartoon style, vertical 9:16 composition, highly cinematic lighting and atmosphere, detailed environments and dramatic composition, no text, no captions, no speech bubbles, no collage, no split screens, no multiple scenes in one canvas, edge-to-edge full-frame composition, no borders margins or padding, safe wording, one clear moment or scene.',
+    'Every prompt must include all of the following constraints naturally: stylized 2D animated comic-book illustration, cel-shaded rendering, muted blue-gray cinematic palette, clean linework, expressive characters, vertical 9:16 composition, highly cinematic lighting and atmosphere, detailed environments and dramatic composition, no text, no captions, no speech bubbles, no collage, no split screens, no multiple scenes in one canvas, edge-to-edge full-frame composition, no borders margins or padding, safe wording, one clear moment or scene.',
     'Avoid graphic gore, hate, sexual content, brands, watermarks, copyrighted characters, and unsafe instructions.',
     'Return only the 10 prompts.',
   ].join(' ');
 };
 
-const parseChatResponse = (data: {
-  choices?: Array<{ message?: { content?: string } }>;
-  response?: string;
-  text?: string;
-}) => data.choices?.[0]?.message?.content ?? data.response ?? data.text ?? '';
+const parseMiniMaxAnthropicResponse = (data: {
+  content?: Array<{
+    type?: string;
+    text?: string;
+  }>;
+}) =>
+  data.content
+    ?.filter((block) => block.type === 'text' && typeof block.text === 'string')
+    .map((block) => block.text?.trim() ?? '')
+    .filter(Boolean)
+    .join('\n')
+    .trim() ?? '';
 
-const requestTextViaPollinations = async (
+const requestTextViaMiniMax = async (
   model: string,
   requestBody: {
     messages: PollinationsMessage[];
   },
 ) => {
-  if (!env.openRouterApiKey) {
+  if (!env.minimaxApiKey) {
     throw new AppError(
-      'OPENROUTER_API_KEY is not configured.',
+      'MINIMAX_API_KEY is not configured.',
       500,
-      'OPENROUTER_API_KEY_MISSING',
+      'MINIMAX_API_KEY_MISSING',
     );
   }
 
-  const response = await fetch(`${env.openRouterBaseUrl.replace(/\/$/, '')}/chat/completions`, {
+  console.log('[minimax:text] Sending request', {
+    url: env.minimaxTextBaseUrl,
+    model,
+    messageCount: requestBody.messages.length,
+    apiKeyLength: env.minimaxApiKey.length,
+    apiKeyPrefix: env.minimaxApiKey.slice(0, 6),
+    apiKeySuffix: env.minimaxApiKey.slice(-4),
+  });
+
+  const response = await fetch(env.minimaxTextBaseUrl, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${env.openRouterApiKey}`,
+      'X-Api-Key': env.minimaxApiKey,
       'Content-Type': 'application/json',
-      'HTTP-Referer': env.publicBaseUrl,
-      'X-Title': 'Genreels MVP',
     },
     body: JSON.stringify({
       model,
       messages: requestBody.messages,
-      temperature: 0.7,
     }),
+  });
+
+  console.log('[minimax:text] Received response', {
+    model,
+    status: response.status,
+    ok: response.ok,
   });
 
   if (!response.ok) {
     const bodyText = await response.text();
+    console.error('[minimax:text] Error body', bodyText);
     throw new AppError(
-      `OpenRouter text request failed with status ${response.status}${bodyText ? `: ${bodyText}` : ''}`,
+      `MiniMax text request failed with status ${response.status}${bodyText ? `: ${bodyText}` : ''}`,
       500,
-      'OPENROUTER_TEXT_FAILED',
+      'MINIMAX_TEXT_FAILED',
     );
   }
 
   const data = (await response.json()) as {
-    choices?: Array<{ message?: { content?: string } }>;
-    response?: string;
-    text?: string;
+    content?: Array<{
+      type?: string;
+      text?: string;
+    }>;
   };
+  console.log('[minimax:text] Raw response', data);
 
-  const content = parseChatResponse(data)?.trim();
+  const content = parseMiniMaxAnthropicResponse(data);
+  console.log('[minimax:text] Parsed response', {
+    model,
+    contentLength: content?.length ?? 0,
+  });
   if (!content) {
     throw new AppError(
-      'OpenRouter returned an empty text response.',
+      'MiniMax returned an empty text response.',
       500,
-      'OPENROUTER_EMPTY_RESPONSE',
+      'MINIMAX_EMPTY_RESPONSE',
     );
   }
 
@@ -114,7 +135,7 @@ const requestTextViaPollinations = async (
 };
 
 export const pollinationsClient = {
-  async generateNarrativeText({ topic }: { topic: string }): Promise<string> {
+  async generateNarrativeText({ topic, feedback }: NarrativeGenerationRequest): Promise<string> {
     const requestBody = {
       messages: [
         {
@@ -123,12 +144,12 @@ export const pollinationsClient = {
         },
         {
           role: 'user',
-          content: `Topic: ${topic}`,
+          content: feedback ? `Topic: ${topic}\nRevision notes: ${feedback}` : `Topic: ${topic}`,
         },
       ] satisfies PollinationsMessage[],
     };
 
-    return requestTextViaPollinations(env.openRouterNarrativeModel, requestBody);
+    return requestTextViaMiniMax(env.minimaxNarrativeModel, requestBody);
   },
 
   async generatePromptText({ topic, narrative }: PromptGenerationRequest): Promise<string> {
@@ -145,16 +166,6 @@ export const pollinationsClient = {
       ] satisfies PollinationsMessage[],
     };
 
-    return requestTextViaPollinations(env.openRouterPromptModel, requestBody);
-  },
-
-  buildImageRequest(prompt: string) {
-    return {
-      prompt,
-      imageUrl: buildImageUrl(prompt),
-      model: env.pollinationsImageModel,
-      width: 1080,
-      height: 1920,
-    };
+    return requestTextViaMiniMax(env.minimaxPromptModel, requestBody);
   },
 };

@@ -1,15 +1,16 @@
 # Genreels
 
-MVP TikTok shorts generator built with React, Node.js, Pollinations, and Remotion.
+MVP TikTok shorts generator built with React, Node.js, MiniMax, and Remotion.
 
 ## Planned flow
 
 1. Enter a story topic.
 2. Generate a documentary-style narrative plus narration audio and captions.
-3. Generate 10 constrained image prompts with Pollinations text generation.
-4. Generate 10 images from those prompts with Pollinations image generation.
-5. Render a 9:16 short with Remotion.
-6. Preview prompts, images, and the final video in the UI.
+3. Generate a documentary-style narrative with MiniMax text generation.
+4. Generate 10 constrained image prompts with MiniMax text generation.
+5. Generate 10 images from those prompts with MiniMax image generation.
+6. Render a 9:16 short with Remotion.
+7. Preview prompts, images, and the final video in the UI.
 
 ## Bundle workflow
 

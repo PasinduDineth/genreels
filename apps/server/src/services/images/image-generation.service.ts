@@ -1,7 +1,6 @@
 import { env } from '../../config/env.js';
 import { AppError } from '../../lib/app-error.js';
 import { normalizePromptScene } from '../prompts/prompt-constraints.js';
-import { pollinationsClient } from '../pollinations/pollinations.client.js';
 import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -31,34 +30,129 @@ const extensionFromContentType = (contentType: string | null) => {
   return 'jpg';
 };
 
-const fetchAndCacheImage = async (prompt: string, index: number) => {
-  const upstreamUrl = pollinationsClient.buildImageRequest(prompt).imageUrl;
-  const response = await fetch(upstreamUrl, {
+const getMiniMaxImageBase64 = (data: unknown): string | null => {
+  if (!data || typeof data !== 'object') {
+    return null;
+  }
+
+  const maybeRecord = data as {
+    image_base64?: unknown;
+    image_url?: unknown;
+  };
+
+  if (typeof maybeRecord.image_base64 === 'string' && maybeRecord.image_base64.trim().length > 0) {
+    return maybeRecord.image_base64;
+  }
+
+  return null;
+};
+
+const parseMiniMaxImageBase64s = (payload: unknown): string[] => {
+  if (!payload || typeof payload !== 'object') {
+    return [];
+  }
+
+  const response = payload as {
+    data?: unknown;
+  };
+
+  if (Array.isArray(response.data)) {
+    return response.data
+      .map((entry) => getMiniMaxImageBase64(entry))
+      .filter((value): value is string => Boolean(value));
+  }
+
+  if (response.data && typeof response.data === 'object') {
+    const dataRecord = response.data as {
+      image_base64?: unknown;
+    };
+
+    if (Array.isArray(dataRecord.image_base64)) {
+      return dataRecord.image_base64.filter(
+        (value): value is string => typeof value === 'string' && value.trim().length > 0,
+      );
+    }
+
+    const image = getMiniMaxImageBase64(response.data);
+    return image ? [image] : [];
+  }
+
+  return [];
+};
+
+const generateMiniMaxImage = async (prompt: string, index: number) => {
+  if (!env.minimaxApiKey) {
+    throw new AppError('MINIMAX_API_KEY is not configured.', 500, 'MINIMAX_API_KEY_MISSING');
+  }
+
+  console.log('[minimax:image] Sending request', {
+    url: env.minimaxImageBaseUrl,
+    model: env.minimaxImageModel,
+    promptIndex: index,
+    promptLength: prompt.length,
+    apiKeyLength: env.minimaxApiKey.length,
+    apiKeyPrefix: env.minimaxApiKey.slice(0, 6),
+    apiKeySuffix: env.minimaxApiKey.slice(-4),
+  });
+
+  const response = await fetch(env.minimaxImageBaseUrl, {
+    method: 'POST',
     headers: {
-      Accept: 'image/*',
+      Authorization: `Bearer ${env.minimaxApiKey}`,
+      'Content-Type': 'application/json',
     },
+    body: JSON.stringify({
+      model: env.minimaxImageModel,
+      prompt,
+      aspect_ratio: '9:16',
+      response_format: 'base64',
+      n: 1,
+      prompt_optimizer: true,
+    }),
+  });
+
+  console.log('[minimax:image] Received response', {
+    promptIndex: index,
+    status: response.status,
+    ok: response.ok,
   });
 
   if (!response.ok) {
+    const bodyText = await response.text();
+    console.error('[minimax:image] Error body', bodyText);
     throw new AppError(
-      `Pollinations image request failed with status ${response.status}.`,
+      `MiniMax image request failed with status ${response.status}${bodyText ? `: ${bodyText}` : ''}.`,
       502,
-      'IMAGE_FETCH_FAILED',
+      'MINIMAX_IMAGE_FAILED',
     );
   }
 
-  const contentType = response.headers.get('content-type');
-  const extension = extensionFromContentType(contentType);
+  const payload = (await response.json()) as unknown;
+  console.log('[minimax:image] Raw response', payload);
+  const base64Images = parseMiniMaxImageBase64s(payload);
+  console.log('[minimax:image] Parsed response', {
+    promptIndex: index,
+    imageCount: base64Images.length,
+  });
+
+  if (base64Images.length === 0) {
+    throw new AppError(
+      'MiniMax returned no image data.',
+      502,
+      'MINIMAX_IMAGE_EMPTY',
+    );
+  }
+
+  const imageBuffer = Buffer.from(base64Images[0], 'base64');
   const hash = crypto
     .createHash('sha1')
     .update(`${index}-${prompt}`)
     .digest('hex')
     .slice(0, 16);
-  const fileName = `img-${index + 1}-${hash}.${extension}`;
+  const fileName = `img-${index + 1}-${hash}.jpg`;
   const filePath = path.join(generatedImagesDirectory, fileName);
-  const arrayBuffer = await response.arrayBuffer();
 
-  await fs.writeFile(filePath, Buffer.from(arrayBuffer));
+  await fs.writeFile(filePath, imageBuffer);
 
   return `${env.publicBaseUrl.replace(/\/$/, '')}/generated-images/${fileName}`;
 };
@@ -77,7 +171,7 @@ export const generateImagesFromPrompts = async (prompts: unknown[]) => {
 
   const imageUrls: string[] = [];
   for (const [index, prompt] of normalizedPrompts.entries()) {
-    imageUrls.push(await fetchAndCacheImage(prompt, index));
+    imageUrls.push(await generateMiniMaxImage(prompt, index));
   }
 
   const images = normalizedPrompts.map((prompt, index) => ({
