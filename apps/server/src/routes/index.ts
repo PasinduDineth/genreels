@@ -7,6 +7,7 @@ import { createImagesRouter } from './images.routes.js';
 import { createNarrativeRouter } from './narratives.routes.js';
 import { createPromptRouter } from './prompts.routes.js';
 import { createRenderRouter } from './renders.routes.js';
+import { createSceneVideosRouter } from './scene-videos.routes.js';
 
 export const createApiRouter = () => {
   const router = Router();
@@ -19,6 +20,7 @@ export const createApiRouter = () => {
   router.use('/narratives', createNarrativeRouter());
   router.use('/prompts', createPromptRouter());
   router.use('/images', createImagesRouter());
+  router.use('/scene-videos', createSceneVideosRouter());
   router.use('/render', createRenderRouter());
   router.use('/renders', createRenderRouter());
 

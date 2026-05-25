@@ -12,6 +12,7 @@ const currentDirectory = path.dirname(fileURLToPath(import.meta.url));
 const renderedDirectory = path.resolve(currentDirectory, '../../../rendered');
 const generatedImagesDirectory = path.resolve(currentDirectory, '../../../generated-images');
 const generatedAudioDirectory = path.resolve(currentDirectory, '../../../generated-audio');
+const generatedVideosDirectory = path.resolve(currentDirectory, '../../../generated-videos');
 
 app.use(
   cors({
@@ -23,6 +24,7 @@ app.use(express.json({ limit: '2mb' }));
 app.use('/rendered', express.static(renderedDirectory));
 app.use('/generated-images', express.static(generatedImagesDirectory));
 app.use('/generated-audio', express.static(generatedAudioDirectory));
+app.use('/generated-videos', express.static(generatedVideosDirectory));
 
 app.get('/', (_request, response) => {
   response.json({

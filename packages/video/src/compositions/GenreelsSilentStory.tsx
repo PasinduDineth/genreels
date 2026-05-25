@@ -3,6 +3,7 @@ import {
   AbsoluteFill,
   Audio,
   Img,
+  OffthreadVideo,
   Sequence,
   continueRender,
   delayRender,
@@ -110,9 +111,16 @@ export const GenreelsSilentStory = ({
         const sceneStart = Math.floor((index * durationInFrames) / scenes.length);
         const sceneEnd = Math.floor(((index + 1) * durationInFrames) / scenes.length);
         const sceneDurationInFrames = Math.max(sceneEnd - sceneStart, 1);
-        const imageSrc = scene.imageUrl.startsWith("http") || scene.imageUrl.startsWith("data:image/")
-          ? scene.imageUrl
-          : staticFile(scene.imageUrl);
+        const imageSrc = scene.imageUrl
+          ? scene.imageUrl.startsWith("http") || scene.imageUrl.startsWith("data:image/")
+            ? scene.imageUrl
+            : staticFile(scene.imageUrl)
+          : null;
+        const videoSrc = scene.videoUrl
+          ? scene.videoUrl.startsWith("http")
+            ? scene.videoUrl
+            : staticFile(scene.videoUrl)
+          : null;
 
         return (
           <Sequence
@@ -125,6 +133,7 @@ export const GenreelsSilentStory = ({
               durationInFrames={sceneDurationInFrames}
               imageSrc={imageSrc}
               motion={scene.motion}
+              videoSrc={videoSrc}
             />
           </Sequence>
         );
@@ -154,8 +163,9 @@ export const GenreelsSilentStory = ({
 type SceneImageProps = {
   durationInFrames: number;
   frame: number;
-  imageSrc: string;
+  imageSrc: string | null;
   motion: SceneMotion;
+  videoSrc: string | null;
 };
 
 const SceneImage = ({
@@ -163,6 +173,7 @@ const SceneImage = ({
   frame,
   imageSrc,
   motion,
+  videoSrc,
 }: SceneImageProps) => {
   const vignetteOpacity = interpolate(frame, [0, durationInFrames], [0.22, 0.36]);
   const fadeOpacity = interpolate(
@@ -178,15 +189,27 @@ const SceneImage = ({
         overflow: "hidden",
       }}
     >
-      <Img
-        src={imageSrc}
-        style={{
-          height: "100%",
-          width: "100%",
-          objectFit: "cover",
-          ...getMotionStyle(motion, frame, durationInFrames),
-        }}
-      />
+      {videoSrc ? (
+        <OffthreadVideo
+          muted
+          src={videoSrc}
+          style={{
+            height: "100%",
+            width: "100%",
+            objectFit: "cover",
+          }}
+        />
+      ) : imageSrc ? (
+        <Img
+          src={imageSrc}
+          style={{
+            height: "100%",
+            width: "100%",
+            objectFit: "cover",
+            ...getMotionStyle(motion, frame, durationInFrames),
+          }}
+        />
+      ) : null}
       <AbsoluteFill
         style={{
           background:

@@ -11,17 +11,23 @@ const currentDirectory = path.dirname(fileURLToPath(import.meta.url));
 const workspaceRoot = path.resolve(currentDirectory, '../../../../../');
 const generatedImagesDirectory = path.resolve(workspaceRoot, 'generated-images');
 const generatedAudioDirectory = path.resolve(workspaceRoot, 'generated-audio');
+const generatedVideosDirectory = path.resolve(workspaceRoot, 'generated-videos');
 
 type PromptItem = {
   id: string;
   text: string;
+  videoPrompt?: string;
 };
 
 type ImageAsset = {
   id: string;
   promptId: string;
   promptText: string;
+  sourceImageUrl?: string;
   url: string;
+  videoDurationInSeconds?: number;
+  videoPromptText?: string;
+  videoUrl?: string;
 };
 
 type NarrativeAsset = {
@@ -47,6 +53,10 @@ type BundleManifest = {
     id: string;
     promptId: string;
     promptText: string;
+    sourceImageUrl?: string | null;
+    videoDurationInSeconds?: number | null;
+    videoFile?: string | null;
+    videoPromptText?: string | null;
   }>;
   narrative: {
     audioDurationInSeconds: number | null;
@@ -60,7 +70,7 @@ type BundleManifest = {
     sceneCount: number;
   };
   topic: string;
-  version: 1;
+  version: 1 | 2;
 };
 
 const sanitizeSegment = (value: string) => {
@@ -71,15 +81,25 @@ const sanitizeSegment = (value: string) => {
     .slice(0, 48) || 'genreels-bundle';
 };
 
-const toPublicUrl = (kind: 'audio' | 'image', fileName: string) => {
+const toPublicUrl = (kind: 'audio' | 'image' | 'video', fileName: string) => {
   const baseUrl = env.publicBaseUrl.replace(/\/$/, '');
-  const route = kind === 'audio' ? 'generated-audio' : 'generated-images';
+  const route =
+    kind === 'audio'
+      ? 'generated-audio'
+      : kind === 'image'
+        ? 'generated-images'
+        : 'generated-videos';
   return `${baseUrl}/${route}/${fileName}`;
 };
 
-const ensureLocalManagedUrl = (assetUrl: string, kind: 'audio' | 'image') => {
+const ensureLocalManagedUrl = (assetUrl: string, kind: 'audio' | 'image' | 'video') => {
   const parsed = new URL(assetUrl);
-  const expectedPathPrefix = kind === 'audio' ? '/generated-audio/' : '/generated-images/';
+  const expectedPathPrefix =
+    kind === 'audio'
+      ? '/generated-audio/'
+      : kind === 'image'
+        ? '/generated-images/'
+        : '/generated-videos/';
 
   if (parsed.origin !== env.publicBaseUrl.replace(/\/$/, '') || !parsed.pathname.startsWith(expectedPathPrefix)) {
     throw new AppError(
@@ -92,9 +112,14 @@ const ensureLocalManagedUrl = (assetUrl: string, kind: 'audio' | 'image') => {
   return path.basename(parsed.pathname);
 };
 
-const readManagedAsset = async (assetUrl: string, kind: 'audio' | 'image') => {
+const readManagedAsset = async (assetUrl: string, kind: 'audio' | 'image' | 'video') => {
   const fileName = ensureLocalManagedUrl(assetUrl, kind);
-  const directory = kind === 'audio' ? generatedAudioDirectory : generatedImagesDirectory;
+  const directory =
+    kind === 'audio'
+      ? generatedAudioDirectory
+      : kind === 'image'
+        ? generatedImagesDirectory
+        : generatedVideosDirectory;
   const absolutePath = path.join(directory, fileName);
   const content = await fs.readFile(absolutePath);
 
@@ -107,6 +132,8 @@ const readManagedAsset = async (assetUrl: string, kind: 'audio' | 'image') => {
 const getImageExtension = (fileName: string) => path.extname(fileName) || '.jpg';
 
 const getAudioExtension = (fileName: string) => path.extname(fileName) || '.mp3';
+
+const getVideoExtension = (fileName: string) => path.extname(fileName) || '.mp4';
 
 const countWords = (value: string) =>
   value
@@ -132,6 +159,14 @@ export const createBundleArchive = async ({
     throw new AppError('Exactly 10 images are required to export a bundle.', 400, 'BUNDLE_IMAGE_COUNT_INVALID');
   }
 
+  if (images.some((image) => !image.videoUrl)) {
+    throw new AppError(
+      'A complete bundle requires generated scene videos for all 10 images.',
+      400,
+      'BUNDLE_VIDEO_COUNT_INVALID',
+    );
+  }
+
   const zip = new JSZip();
   const imagesFolder = zip.folder('images');
   if (!imagesFolder) {
@@ -143,12 +178,23 @@ export const createBundleArchive = async ({
       const { content, fileName } = await readManagedAsset(image.url, 'image');
       const bundleImageName = `image-${String(index + 1).padStart(2, '0')}${getImageExtension(fileName)}`;
       imagesFolder.file(bundleImageName, content);
+      let bundleVideoName: string | null = null;
+
+      if (image.videoUrl) {
+        const videoAsset = await readManagedAsset(image.videoUrl, 'video');
+        bundleVideoName = `scene-video-${String(index + 1).padStart(2, '0')}${getVideoExtension(videoAsset.fileName)}`;
+        zip.file(`videos/${bundleVideoName}`, videoAsset.content);
+      }
 
       return {
         file: `images/${bundleImageName}`,
         id: image.id,
         promptId: image.promptId,
         promptText: image.promptText,
+        sourceImageUrl: image.sourceImageUrl ?? null,
+        videoDurationInSeconds: image.videoDurationInSeconds ?? null,
+        videoFile: bundleVideoName ? `videos/${bundleVideoName}` : null,
+        videoPromptText: image.videoPromptText ?? null,
       };
     }),
   );
@@ -185,7 +231,7 @@ export const createBundleArchive = async ({
       sceneCount: imageEntries.length,
     },
     topic: topic.trim(),
-    version: 1,
+    version: 2,
   };
 
   const storyPackage = {
@@ -194,6 +240,10 @@ export const createBundleArchive = async ({
       imageId: entry.id,
       promptId: entry.promptId,
       promptText: entry.promptText,
+      sourceImageUrl: entry.sourceImageUrl ?? null,
+      videoDurationInSeconds: entry.videoDurationInSeconds ?? null,
+      videoFile: entry.videoFile ?? null,
+      videoPromptText: entry.videoPromptText ?? null,
     })),
     narrative: {
       text: narrative.text,
@@ -222,6 +272,10 @@ export const createBundleArchive = async ({
         'push-in',
       ][index],
       prompt: entry.promptText,
+      sourceImageUrl: entry.sourceImageUrl ?? null,
+      videoDurationInSeconds: entry.videoDurationInSeconds ?? null,
+      videoFile: entry.videoFile ?? null,
+      videoPrompt: entry.videoPromptText ?? null,
     })),
     topic: topic.trim(),
   };
@@ -291,7 +345,7 @@ export const importBundleArchive = async (archive: Buffer) => {
   const zip = await JSZip.loadAsync(archive);
   const manifest = await getRequiredJson<BundleManifest>(zip, 'manifest.json');
 
-  if (manifest.format !== 'genreels-bundle' || manifest.version !== 1) {
+  if (manifest.format !== 'genreels-bundle' || ![1, 2].includes(manifest.version)) {
     throw new AppError('Unsupported bundle format.', 400, 'BUNDLE_IMPORT_FORMAT_INVALID');
   }
 
@@ -299,9 +353,18 @@ export const importBundleArchive = async (archive: Buffer) => {
     throw new AppError('Bundle must include exactly 10 images.', 400, 'BUNDLE_IMPORT_IMAGE_COUNT_INVALID');
   }
 
+  if (manifest.images.some((imageEntry) => !imageEntry.videoFile)) {
+    throw new AppError(
+      'Bundle must include generated scene videos for all 10 images.',
+      400,
+      'BUNDLE_IMPORT_VIDEO_COUNT_INVALID',
+    );
+  }
+
   await Promise.all([
     fs.mkdir(generatedAudioDirectory, { recursive: true }),
     fs.mkdir(generatedImagesDirectory, { recursive: true }),
+    fs.mkdir(generatedVideosDirectory, { recursive: true }),
   ]);
 
   const bundleId = `${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
@@ -321,6 +384,7 @@ export const importBundleArchive = async (archive: Buffer) => {
   const prompts = manifest.prompts.map((prompt) => ({
     id: prompt.id,
     text: prompt.text,
+    videoPrompt: prompt.videoPrompt ?? '',
   }));
 
   const images = await Promise.all(
@@ -329,12 +393,25 @@ export const importBundleArchive = async (archive: Buffer) => {
       const imageBuffer = await imageZipFile.async('nodebuffer');
       const imageFileName = `${bundleId}-image-${String(index + 1).padStart(2, '0')}${getImageExtension(imageEntry.file)}`;
       await fs.writeFile(path.join(generatedImagesDirectory, imageFileName), imageBuffer);
+      let videoUrl: string | undefined;
+
+      if (imageEntry.videoFile) {
+        const videoZipFile = getRequiredFile(zip, imageEntry.videoFile);
+        const videoBuffer = await videoZipFile.async('nodebuffer');
+        const videoFileName = `${bundleId}-scene-${String(index + 1).padStart(2, '0')}${getVideoExtension(imageEntry.videoFile)}`;
+        await fs.writeFile(path.join(generatedVideosDirectory, videoFileName), videoBuffer);
+        videoUrl = toPublicUrl('video', videoFileName);
+      }
 
       return {
         id: imageEntry.id,
         promptId: imageEntry.promptId,
         promptText: imageEntry.promptText,
+        sourceImageUrl: imageEntry.sourceImageUrl ?? undefined,
         url: toPublicUrl('image', imageFileName),
+        videoDurationInSeconds: imageEntry.videoDurationInSeconds ?? undefined,
+        videoPromptText: imageEntry.videoPromptText ?? undefined,
+        videoUrl,
       };
     }),
   );

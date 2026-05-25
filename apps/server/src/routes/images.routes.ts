@@ -7,7 +7,18 @@ export const createImagesRouter = () => {
   const router = Router();
 
   const handleGenerate = asyncHandler(async (request, response) => {
-    const prompts = Array.isArray(request.body?.prompts) ? request.body.prompts : [];
+    const prompts = Array.isArray(request.body?.prompts)
+      ? request.body.prompts.map((prompt: unknown, index: number) => {
+          if (typeof prompt === 'string') {
+            return {
+              id: `prompt_${index + 1}`,
+              text: prompt,
+            };
+          }
+
+          return prompt;
+        })
+      : [];
 
     const result = await generateImagesFromPrompts(prompts);
 

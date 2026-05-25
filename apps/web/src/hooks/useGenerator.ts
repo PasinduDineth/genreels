@@ -22,10 +22,12 @@ type Action =
   | {type: 'audio/status'; payload: GenerationStatus}
   | {type: 'prompts/status'; payload: GenerationStatus}
   | {type: 'images/status'; payload: GenerationStatus}
+  | {type: 'scene-video/status'; payload: GenerationStatus}
   | {type: 'render/status'; payload: GenerationStatus}
   | {type: 'narrative/set'; payload: NarrativeAsset | null}
   | {type: 'prompts/set'; payload: PromptItem[]}
   | {type: 'images/set'; payload: ImageAsset[]}
+  | {type: 'image/update'; payload: ImageAsset}
   | {type: 'video/set'; payload: VideoAsset | null}
   | {type: 'bundle/load'; payload: BundleImportResponse}
   | {type: 'status/push'; payload: StatusMessage}
@@ -41,6 +43,7 @@ const initialState: AppState = {
   narrativeStatus: 'idle',
   promptStatus: 'idle',
   imageStatus: 'idle',
+  sceneVideoStatus: 'idle',
   renderStatus: 'idle',
   statusFeed: [],
 };
@@ -72,6 +75,11 @@ function reducer(state: AppState, action: Action): AppState {
         ...state,
         imageStatus: action.payload,
       };
+    case 'scene-video/status':
+      return {
+        ...state,
+        sceneVideoStatus: action.payload,
+      };
     case 'render/status':
       return {
         ...state,
@@ -92,6 +100,13 @@ function reducer(state: AppState, action: Action): AppState {
         ...state,
         images: action.payload,
       };
+    case 'image/update':
+      return {
+        ...state,
+        images: state.images.map((image) =>
+          image.id === action.payload.id ? action.payload : image,
+        ),
+      };
     case 'video/set':
       return {
         ...state,
@@ -109,6 +124,7 @@ function reducer(state: AppState, action: Action): AppState {
         narrativeStatus: 'success',
         promptStatus: action.payload.prompts.length ? 'success' : 'idle',
         imageStatus: action.payload.images.length ? 'success' : 'idle',
+        sceneVideoStatus: hasCompleteSceneVideoSet(action.payload.images) ? 'success' : 'idle',
         renderStatus: 'idle',
       };
     case 'status/push':
@@ -138,6 +154,14 @@ function buildStatusMessage(
   };
 }
 
+const TARGET_SCENE_COUNT = 10;
+
+const hasCompleteSceneSet = (images: ImageAsset[]) =>
+  images.length === TARGET_SCENE_COUNT;
+
+const hasCompleteSceneVideoSet = (images: ImageAsset[]) =>
+  hasCompleteSceneSet(images) && images.every((image) => Boolean(image.videoUrl));
+
 export function useGenerator() {
   const [state, dispatch] = useReducer(reducer, initialState);
 
@@ -159,20 +183,32 @@ export function useGenerator() {
       state.narrativeStatus !== 'loading' &&
       state.promptStatus !== 'loading' &&
       state.imageStatus !== 'loading' &&
+      state.sceneVideoStatus !== 'loading' &&
       state.renderStatus !== 'loading',
-    [state.audioStatus, state.imageStatus, state.narrativeStatus, state.promptStatus, state.renderStatus, state.topic],
+    [
+      state.audioStatus,
+      state.imageStatus,
+      state.narrativeStatus,
+      state.promptStatus,
+      state.renderStatus,
+      state.sceneVideoStatus,
+      state.topic,
+    ],
   );
 
   const canRender = useMemo(
     () =>
-      state.images.length > 0 &&
+      hasCompleteSceneSet(state.images) &&
+      state.audioStatus === 'success' &&
       state.renderStatus !== 'loading' &&
-      state.imageStatus !== 'loading',
-    [state.imageStatus, state.images.length, state.renderStatus],
+      state.imageStatus !== 'loading' &&
+      state.sceneVideoStatus !== 'loading',
+    [state.audioStatus, state.imageStatus, state.images, state.renderStatus, state.sceneVideoStatus],
   );
 
   const generateNarrativePromptsAndImages = useCallback(async () => {
     const topic = state.topic.trim();
+    let phase: 'narrative' | 'audio' | 'prompts' | 'images' = 'narrative';
 
     if (!topic) {
       pushStatus('error', 'Add a topic before generating prompts.');
@@ -180,10 +216,11 @@ export function useGenerator() {
     }
 
     dispatch({type: 'status/clear'});
-    dispatch({type: 'audio/status', payload: 'loading'});
+    dispatch({type: 'audio/status', payload: 'idle'});
     dispatch({type: 'narrative/status', payload: 'loading'});
     dispatch({type: 'prompts/status', payload: 'loading'});
     dispatch({type: 'images/status', payload: 'idle'});
+    dispatch({type: 'scene-video/status', payload: 'idle'});
     dispatch({type: 'render/status', payload: 'idle'});
     dispatch({type: 'narrative/set', payload: null});
     dispatch({type: 'prompts/set', payload: []});
@@ -193,66 +230,45 @@ export function useGenerator() {
 
     try {
       const narrativeResponse = await apiClient.generateNarrative({topic});
-      pushStatus('info', 'Generating voice narration from the story.');
-
-      if (!window.puter?.ai?.txt2speech) {
-        throw new Error('Puter TTS is not available in the browser.');
-      }
-
-      const audioElement = await window.puter.ai.txt2speech(narrativeResponse.narrative, {
-        provider: 'gemini',
-        model: 'gemini-2.5-flash-preview-tts',
-        voice: 'Algieba',
-        instructions: 'danger narrative for viral tiktok videos',
-      });
-      await new Promise<void>((resolve, reject) => {
-        if (Number.isFinite(audioElement.duration) && audioElement.duration > 0) {
-          resolve();
-          return;
-        }
-
-        const handleLoadedMetadata = () => {
-          cleanup();
-          resolve();
-        };
-
-        const handleError = () => {
-          cleanup();
-          reject(new Error('Failed to read Puter audio metadata.'));
-        };
-
-        const cleanup = () => {
-          audioElement.removeEventListener('loadedmetadata', handleLoadedMetadata);
-          audioElement.removeEventListener('error', handleError);
-        };
-
-        audioElement.addEventListener('loadedmetadata', handleLoadedMetadata);
-        audioElement.addEventListener('error', handleError);
-      });
-
-      const audioResponse = await fetch(audioElement.src);
-      const audioBlob = await audioResponse.blob();
-      const uploadedAudio = await apiClient.uploadNarrationAudio(topic, audioBlob);
 
       startTransition(() => {
         dispatch({
           type: 'narrative/set',
           payload: {
-            audioDurationInSeconds: audioElement.duration,
-            audioUrl: uploadedAudio.audioUrl,
-            captions: uploadedAudio.captions,
             text: narrativeResponse.narrative,
             wordCount: narrativeResponse.wordCount,
           },
         });
         dispatch({type: 'narrative/status', payload: 'success'});
-        dispatch({type: 'audio/status', payload: 'success'});
+        dispatch({type: 'audio/status', payload: 'loading'});
       });
       pushStatus('success', `Generated a ${narrativeResponse.wordCount}-word narrative.`);
-      pushStatus('success', `Generated narration audio (${Math.round(audioElement.duration)}s).`);
+      pushStatus('info', 'Generating narration audio and captions from the story.');
+
+      phase = 'audio';
+      const audioResponse = await apiClient.generateNarrationAudio({
+        text: narrativeResponse.narrative,
+        topic,
+      });
+
+      startTransition(() => {
+        dispatch({
+          type: 'narrative/set',
+          payload: {
+            audioDurationInSeconds: audioResponse.audioDurationInSeconds,
+            audioUrl: audioResponse.audioUrl,
+            captions: audioResponse.captions,
+            text: narrativeResponse.narrative,
+            wordCount: narrativeResponse.wordCount,
+          },
+        });
+        dispatch({type: 'audio/status', payload: 'success'});
+      });
+      pushStatus('success', 'Narration audio and captions are ready.');
 
       pushStatus('info', 'Generating ten scene prompts from the narrative.');
 
+      phase = 'prompts';
       const promptResponse = await apiClient.generatePrompts({
         narrative: narrativeResponse.narrative,
         topic,
@@ -267,8 +283,9 @@ export function useGenerator() {
       dispatch({type: 'images/status', payload: 'loading'});
       pushStatus('info', 'Generating images from the approved prompts.');
 
+      phase = 'images';
       const imageResponse = await apiClient.generateImages({
-        prompts: promptResponse.prompts.map((prompt) => prompt.text),
+        prompts: promptResponse.prompts,
       });
 
       startTransition(() => {
@@ -276,14 +293,27 @@ export function useGenerator() {
         dispatch({type: 'images/status', payload: 'success'});
       });
       pushStatus('success', `Generated ${imageResponse.images.length} images.`);
+      pushStatus('info', 'Render video will now generate scene clips for all frames automatically before the final Remotion render.');
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Unexpected generation error.';
 
-      dispatch({type: 'audio/status', payload: 'error'});
-      dispatch({type: 'narrative/status', payload: 'error'});
-      dispatch({type: 'prompts/status', payload: 'error'});
-      dispatch({type: 'images/status', payload: 'error'});
+      if (phase === 'narrative') {
+        dispatch({type: 'narrative/status', payload: 'error'});
+        dispatch({type: 'audio/status', payload: 'idle'});
+        dispatch({type: 'prompts/status', payload: 'idle'});
+        dispatch({type: 'images/status', payload: 'idle'});
+      } else if (phase === 'audio') {
+        dispatch({type: 'audio/status', payload: 'error'});
+        dispatch({type: 'prompts/status', payload: 'idle'});
+        dispatch({type: 'images/status', payload: 'idle'});
+      } else if (phase === 'prompts') {
+        dispatch({type: 'prompts/status', payload: 'error'});
+        dispatch({type: 'images/status', payload: 'idle'});
+      } else {
+        dispatch({type: 'images/status', payload: 'error'});
+      }
+      dispatch({type: 'scene-video/status', payload: 'idle'});
       pushStatus('error', message);
     }
   }, [pushStatus, state.topic]);
@@ -294,16 +324,62 @@ export function useGenerator() {
       return;
     }
 
+    if (!hasCompleteSceneSet(state.images)) {
+      pushStatus('error', `Generate all ${TARGET_SCENE_COUNT} scene images before rendering the video.`);
+      return;
+    }
+
+    if (!state.narrative?.audioUrl) {
+      pushStatus('error', 'Generate narration audio before rendering the final video.');
+      return;
+    }
+
+    dispatch({type: 'scene-video/status', payload: 'loading'});
     dispatch({type: 'render/status', payload: 'loading'});
-    pushStatus('info', 'Rendering the Remotion video preview.');
+    let preparedImages = state.images;
+    let sceneVideosReady = false;
 
     try {
+      const scenesMissingVideo = preparedImages.filter((image) => !image.videoUrl);
+      if (scenesMissingVideo.length > 0) {
+        pushStatus(
+          'info',
+          `Generating MiniMax scene videos for ${scenesMissingVideo.length} frame${scenesMissingVideo.length === 1 ? '' : 's'} before the final render.`,
+        );
+      } else {
+        pushStatus('info', 'All scene videos are already ready. Starting the final render.');
+      }
+
+      for (const [sceneIndex, image] of preparedImages.entries()) {
+        if (image.videoUrl) {
+          continue;
+        }
+
+        pushStatus('info', `Generating scene clip ${sceneIndex + 1}/${TARGET_SCENE_COUNT}.`);
+        const response = await apiClient.generateSceneVideo({
+          image,
+          sceneIndex,
+        });
+
+        preparedImages = preparedImages.map((entry) =>
+          entry.id === response.image.id ? response.image : entry,
+        );
+
+        startTransition(() => {
+          dispatch({type: 'image/update', payload: response.image});
+        });
+      }
+
+      sceneVideosReady = true;
+      dispatch({type: 'scene-video/status', payload: 'success'});
+      pushStatus('success', 'All scene videos are ready. Rendering the Remotion preview now.');
+
       const response = await apiClient.renderVideo({
         audioDurationInSeconds: state.narrative?.audioDurationInSeconds,
         audioUrl: state.narrative?.audioUrl,
         captions: state.narrative?.captions,
         topic: state.topic.trim(),
-        images: state.images,
+        images: preparedImages,
       });
 
       startTransition(() => {
@@ -315,6 +391,7 @@ export function useGenerator() {
       const message =
         error instanceof Error ? error.message : 'Unexpected render error.';
 
+      dispatch({type: 'scene-video/status', payload: sceneVideosReady ? 'success' : 'error'});
       dispatch({type: 'render/status', payload: 'error'});
       pushStatus('error', message);
     }
@@ -326,7 +403,7 @@ export function useGenerator() {
       return;
     }
 
-    pushStatus('info', 'Packaging audio, images, captions, prompts, and render metadata into a zip.');
+    pushStatus('info', 'Packaging audio, images, scene videos, captions, prompts, and render metadata into a zip.');
 
     try {
       const {blob, fileName} = await apiClient.exportBundle({
@@ -383,7 +460,10 @@ export function useGenerator() {
       setTopic,
     },
     derived: {
-      canDownloadBundle: Boolean(state.narrative && state.images.length === 10),
+      canDownloadBundle:
+        Boolean(state.narrative?.audioUrl) &&
+        state.prompts.length === TARGET_SCENE_COUNT &&
+        hasCompleteSceneVideoSet(state.images),
       canGenerate,
       canRender,
     },

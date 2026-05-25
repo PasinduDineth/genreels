@@ -30,6 +30,7 @@ export default function App() {
             narrativeStatus={state.narrativeStatus}
             promptStatus={state.promptStatus}
             renderStatus={state.renderStatus}
+            sceneVideoStatus={state.sceneVideoStatus}
           />
         </section>
 
@@ -40,7 +41,7 @@ export default function App() {
         <VideoPreview
           canDownloadBundle={derived.canDownloadBundle}
           canRender={derived.canRender}
-          isBundleReady={state.images.length === 10 && Boolean(state.narrative)}
+          isBundleReady={derived.canDownloadBundle}
           onDownloadBundle={actions.downloadBundle}
           onImportBundle={actions.importBundle}
           isRendering={state.renderStatus === 'loading'}

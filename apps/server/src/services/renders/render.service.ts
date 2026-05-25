@@ -32,6 +32,9 @@ type RenderImage = {
   promptId?: unknown;
   promptText?: unknown;
   url?: unknown;
+  videoDurationInSeconds?: unknown;
+  videoPromptText?: unknown;
+  videoUrl?: unknown;
 };
 
 type KickoffRenderInput = {
@@ -153,6 +156,18 @@ const normalizeImages = (images: unknown[]) => {
         imageUrl: url,
         motion: defaultMotions[index % defaultMotions.length],
         prompt: promptText,
+        videoDurationInSeconds:
+          typeof image.videoDurationInSeconds === 'number' && Number.isFinite(image.videoDurationInSeconds)
+            ? image.videoDurationInSeconds
+            : undefined,
+        videoPrompt:
+          typeof image.videoPromptText === 'string' && image.videoPromptText.trim().length > 0
+            ? image.videoPromptText.trim()
+            : undefined,
+        videoUrl:
+          typeof image.videoUrl === 'string' && image.videoUrl.trim().length > 0
+            ? image.videoUrl.trim()
+            : undefined,
       };
     })
     .filter((value): value is NonNullable<typeof value> => value !== null);

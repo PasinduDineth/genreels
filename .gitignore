@@ -12,6 +12,9 @@ generated-audio/*
 !generated-audio/.gitkeep
 generated-images/*
 !generated-images/.gitkeep
+generated-videos/*
+!generated-videos/.gitkeep
+*.tsbuildinfo
 whisper.cpp
 whisper.cpp-bin
 whisper.cpp-models

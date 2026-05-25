@@ -23,14 +23,48 @@ export function ImageGallery({images}: ImageGalleryProps) {
         <div className="gallery-grid">
           {images.map((image, index) => (
             <article className="gallery-card" key={image.id}>
-              <div className="gallery-media">
-                <img alt={`Generated frame ${index + 1}`} src={image.url} />
+              <div className="gallery-media-grid">
+                <div className="gallery-media">
+                  <span className="gallery-media-label">Illustration</span>
+                  <img alt={`Generated frame ${index + 1}`} src={image.url} />
+                </div>
+                <div className="gallery-media">
+                  <span className="gallery-media-label">Scene clip</span>
+                  {image.videoUrl ? (
+                    <video
+                      autoPlay
+                      controls
+                      loop
+                      muted
+                      playsInline
+                      src={image.videoUrl}
+                    />
+                  ) : (
+                    <div className="gallery-video-placeholder">
+                      Scene video will appear here after you render the full video.
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="gallery-caption">
                 <span className="prompt-index">
                   Frame {String(index + 1).padStart(2, '0')}
                 </span>
-                <p>{image.promptText}</p>
+                {image.videoUrl ? (
+                  <span className="gallery-video-badge">
+                    Scene video preview {image.videoDurationInSeconds ? `· ${image.videoDurationInSeconds}s` : ''}
+                  </span>
+                ) : null}
+                <div className="gallery-caption-group">
+                  <strong>Image prompt</strong>
+                  <p>{image.promptText}</p>
+                </div>
+                {image.videoPromptText ? (
+                  <div className="gallery-caption-group">
+                    <strong>Image-to-video prompt</strong>
+                    <p>{image.videoPromptText}</p>
+                  </div>
+                ) : null}
               </div>
             </article>
           ))}

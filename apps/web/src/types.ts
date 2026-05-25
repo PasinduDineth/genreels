@@ -19,13 +19,18 @@ export interface CaptionItem {
 export interface PromptItem {
   id: string;
   text: string;
+  videoPrompt: string;
 }
 
 export interface ImageAsset {
   id: string;
   promptId: string;
   promptText: string;
+  sourceImageUrl?: string;
   url: string;
+  videoDurationInSeconds?: number;
+  videoPromptText?: string;
+  videoUrl?: string;
 }
 
 export interface VideoAsset {
@@ -60,12 +65,37 @@ export interface NarrativeGenerationResponse {
   wordCount: number;
 }
 
+export interface AudioGenerationRequest {
+  text: string;
+  topic: string;
+}
+
+export interface AudioGenerationResponse {
+  audioDurationInSeconds?: number;
+  audioUrl: string;
+  captions: CaptionItem[];
+  fileName: string;
+}
+
 export interface ImageGenerationRequest {
-  prompts: string[];
+  prompts: Array<{
+    id: string;
+    text: string;
+    videoPrompt: string;
+  }>;
 }
 
 export interface ImageGenerationResponse {
   images: ImageAsset[];
+}
+
+export interface SceneVideoGenerationRequest {
+  image: ImageAsset;
+  sceneIndex: number;
+}
+
+export interface SceneVideoGenerationResponse {
+  image: ImageAsset;
 }
 
 export interface VideoRenderRequest {
@@ -104,6 +134,7 @@ export interface AppState {
   narrativeStatus: GenerationStatus;
   promptStatus: GenerationStatus;
   imageStatus: GenerationStatus;
+  sceneVideoStatus: GenerationStatus;
   renderStatus: GenerationStatus;
   statusFeed: StatusMessage[];
 }

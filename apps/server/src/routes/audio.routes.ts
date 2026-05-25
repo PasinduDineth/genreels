@@ -2,10 +2,25 @@ import express, { Router } from 'express';
 
 import { asyncHandler } from '../lib/async-handler.js';
 import { AppError } from '../lib/app-error.js';
-import { saveNarrationAudio } from '../services/audio/audio.service.js';
+import { generateNarrationAudio, saveNarrationAudio } from '../services/audio/audio.service.js';
 
 export const createAudioRouter = () => {
   const router = Router();
+
+  router.post(
+    '/generate',
+    asyncHandler(async (request, response) => {
+      const text = typeof request.body?.text === 'string' ? request.body.text : '';
+      const topic = typeof request.body?.topic === 'string' ? request.body.topic : 'narration';
+
+      const result = await generateNarrationAudio({
+        text,
+        topic,
+      });
+
+      response.json(result);
+    }),
+  );
 
   router.post(
     '/upload',

@@ -20,8 +20,11 @@ export type SceneMotion = z.infer<typeof SceneMotionSchema>;
 export const RenderSceneSchema = z.object({
   id: z.string().min(1),
   prompt: z.string().min(1),
-  imageUrl: z.string().min(1),
+  imageUrl: z.string().min(1).optional(),
   motion: SceneMotionSchema.default("push-in"),
+  videoDurationInSeconds: z.number().positive().optional(),
+  videoPrompt: z.string().min(1).optional(),
+  videoUrl: z.string().min(1).optional(),
 });
 
 export const CaptionSchema = z.object({
@@ -69,6 +72,7 @@ export const DEFAULT_RENDER_INPUT: RenderInput = {
     prompt: `Scene ${index + 1} prompt placeholder for a historical mystery short`,
     imageUrl: `images/placeholder-${index + 1}.jpg`,
     motion: defaultMotions[index],
+    videoPrompt: `Animate scene ${index + 1} with subtle camera movement and atmospheric motion`,
   })),
 };
 

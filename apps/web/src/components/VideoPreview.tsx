@@ -38,7 +38,7 @@ export function VideoPreview({
           onClick={onRender}
           type="button"
         >
-          {isRendering ? 'Rendering...' : 'Render video'}
+          {isRendering ? 'Generating clips + rendering...' : 'Render video'}
         </button>
       </div>
 
@@ -48,7 +48,7 @@ export function VideoPreview({
             <p className="eyebrow">Bundle Export</p>
             <strong>Download reusable render package</strong>
             <p className="helper-text">
-              Includes audio, images, captions, prompts, narrative, and render metadata in one zip.
+              Includes all images, all scene videos, narration audio, captions, prompts, narrative, and render metadata in one zip.
             </p>
           </div>
           <button
@@ -66,7 +66,7 @@ export function VideoPreview({
             <p className="eyebrow">Bundle Import</p>
             <strong>Load a saved package</strong>
             <p className="helper-text">
-              Import a previous zip, repopulate the UI, then press render without regenerating assets.
+              Import a previous zip with all scene assets, repopulate the UI, then press render without regenerating clips.
             </p>
           </div>
 
@@ -104,7 +104,7 @@ export function VideoPreview({
         ) : (
           <div className="video-placeholder">
             <p>Your rendered preview will appear here.</p>
-            <span>Ready to render once narration, captions, and the 10 images are available.</span>
+            <span>Rendering will generate any missing scene videos first, then build the final Remotion preview.</span>
           </div>
         )}
       </div>

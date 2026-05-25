@@ -17,7 +17,8 @@ export const createPromptRouter = () => {
       promptCount: result.promptCount,
       prompts: result.prompts.map((prompt, index) => ({
         id: `prompt_${index + 1}`,
-        text: prompt,
+        text: prompt.imagePrompt,
+        videoPrompt: prompt.videoPrompt,
       })),
       rawResponse: result.rawResponse,
       topic: result.topic,

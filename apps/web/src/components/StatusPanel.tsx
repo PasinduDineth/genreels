@@ -4,6 +4,7 @@ interface StatusPanelProps {
   narrativeStatus: GenerationStatus;
   promptStatus: GenerationStatus;
   imageStatus: GenerationStatus;
+  sceneVideoStatus: GenerationStatus;
   renderStatus: GenerationStatus;
   feed: StatusMessage[];
 }
@@ -27,6 +28,7 @@ export function StatusPanel({
   narrativeStatus,
   promptStatus,
   imageStatus,
+  sceneVideoStatus,
   renderStatus,
   feed,
 }: StatusPanelProps) {
@@ -43,6 +45,7 @@ export function StatusPanel({
         <StatusPill label="Narrative" status={narrativeStatus} />
         <StatusPill label="Prompts" status={promptStatus} />
         <StatusPill label="Images" status={imageStatus} />
+        <StatusPill label="Scene Video" status={sceneVideoStatus} />
         <StatusPill label="Render" status={renderStatus} />
       </div>
 

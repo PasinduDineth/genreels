@@ -4,6 +4,8 @@ import {
   USE_MOCKS,
 } from './config';
 import type {
+  AudioGenerationRequest,
+  AudioGenerationResponse,
   BundleExportRequest,
   BundleImportResponse,
   ImageAsset,
@@ -15,6 +17,8 @@ import type {
   PromptGenerationResponse,
   PromptItem,
   CaptionItem,
+  SceneVideoGenerationRequest,
+  SceneVideoGenerationResponse,
   VideoRenderRequest,
   VideoRenderResponse,
 } from '../types';
@@ -69,6 +73,7 @@ const buildMockPrompts = (topic: string): PromptItem[] =>
   Array.from({length: PROMPT_COUNT}, (_, index) => ({
     id: toId('prompt', index),
     text: `${topic.trim()} scene ${index + 1}: ${HISTORY_STORY_RULES}`,
+    videoPrompt: `Animate scene ${index + 1} with subtle cinematic motion, natural character movement, drifting atmosphere, and a steady documentary-style camera move while preserving the original composition.`,
   }));
 
 const buildMockNarrative = (topic: string) => {
@@ -86,7 +91,9 @@ const buildMockImages = (prompts: PromptItem[]): ImageAsset[] =>
     id: toId('image', index),
     promptId: prompt.id,
     promptText: prompt.text,
+    sourceImageUrl: createPlaceholderImage(prompt.text, index),
     url: createPlaceholderImage(prompt.text, index),
+    videoPromptText: prompt.videoPrompt,
   }));
 
 async function requestJson<TResponse>(
@@ -110,29 +117,6 @@ async function requestJson<TResponse>(
 }
 
 export const apiClient = {
-  async uploadNarrationAudio(
-    topic: string,
-    audioBlob: Blob,
-  ): Promise<{ audioUrl: string; captions: CaptionItem[]; fileName: string }> {
-    const response = await fetch(
-      `${API_BASE_URL}/audio/upload?topic=${encodeURIComponent(topic)}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': audioBlob.type || 'audio/mpeg',
-        },
-        body: audioBlob,
-      },
-    );
-
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(text || `Audio upload failed with status ${response.status}`);
-    }
-
-    return (await response.json()) as { audioUrl: string; captions: CaptionItem[]; fileName: string };
-  },
-
   async generateNarrative(
     payload: NarrativeGenerationRequest,
   ): Promise<NarrativeGenerationResponse> {
@@ -142,6 +126,25 @@ export const apiClient = {
     }
 
     return requestJson<NarrativeGenerationResponse>(`${API_BASE_URL}/narrative`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async generateNarrationAudio(
+    payload: AudioGenerationRequest,
+  ): Promise<AudioGenerationResponse> {
+    if (USE_MOCKS) {
+      await sleep(850);
+      return {
+        audioDurationInSeconds: 42,
+        audioUrl: SAMPLE_VIDEO_URL,
+        captions: [] satisfies CaptionItem[],
+        fileName: 'mock-narration.mp3',
+      };
+    }
+
+    return requestJson<AudioGenerationResponse>(`${API_BASE_URL}/audio/generate`, {
       method: 'POST',
       body: JSON.stringify(payload),
     });
@@ -166,14 +169,35 @@ export const apiClient = {
   ): Promise<ImageGenerationResponse> {
     if (USE_MOCKS) {
       await sleep(900);
-      const prompts = payload.prompts.map((text, index) => ({
-        id: toId('prompt', index),
-        text,
+      const prompts = payload.prompts.map((prompt, index) => ({
+        id: prompt.id || toId('prompt', index),
+        text: prompt.text,
+        videoPrompt: prompt.videoPrompt,
       }));
       return {images: buildMockImages(prompts)};
     }
 
     return requestJson<ImageGenerationResponse>(`${API_BASE_URL}/images`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async generateSceneVideo(
+    payload: SceneVideoGenerationRequest,
+  ): Promise<SceneVideoGenerationResponse> {
+    if (USE_MOCKS) {
+      await sleep(1400);
+      return {
+        image: {
+          ...payload.image,
+          videoDurationInSeconds: 6,
+          videoUrl: SAMPLE_VIDEO_URL,
+        },
+      };
+    }
+
+    return requestJson<SceneVideoGenerationResponse>(`${API_BASE_URL}/scene-videos`, {
       method: 'POST',
       body: JSON.stringify(payload),
     });

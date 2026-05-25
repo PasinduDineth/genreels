@@ -24,7 +24,9 @@ export function TopicComposer({
       <p className="panel-copy">
         Enter a real mystery, unexplained event, or strange true story. The MVP
         flow now writes a short narrative first, turns that storyline into ten
-        image prompts, builds the gallery, and then renders the video preview.
+        paired image and image-to-video prompts, generates all ten illustrated
+        keyframes, then uses those frames to build fully illustrated scene
+        videos before the final vertical render.
       </p>
 
       <label className="field">
@@ -48,7 +50,7 @@ export function TopicComposer({
           Generate story
         </button>
         <p className="helper-text">
-          Generates the narrative first, then prompts and image frames for the gallery.
+          Full pipeline: narrative, audio, 10 prompt pairs, 10 still images, 10 scene videos, and final render.
         </p>
       </div>
     </section>

@@ -34,15 +34,24 @@ const createNarrativeSystemMessage = () => {
 
 const createPromptGeneratorSystemMessage = () => {
   return [
-    'Generate exactly 10 image prompts as plain lines, one prompt per line.',
-    'Each prompt must describe a single clear cinematic scene for a TikTok shorts visual sequence.',
-    'The prompts must follow the narrative story line closely and progress from beginning to end in chronological order.',
-    'Each prompt should capture a different beat from the narrative, not repeat the same moment with slight wording changes.',
+    'Generate exactly 10 prompt pairs in valid JSON.',
+    'Return only a JSON array with 10 objects and no markdown fences.',
+    'Each object must have exactly two string keys: "imagePrompt" and "videoPrompt".',
+    'The 10 prompt pairs must follow the narrative story line closely and progress from beginning to end in chronological order.',
+    'Each imagePrompt must describe one single clear cinematic scene for a TikTok shorts visual sequence.',
+    'Each imagePrompt must begin with style-first language and establish within the first 15 words that the scene is stylized 2D, illustrated, cel-shaded, graphic-novel, hand-drawn, and non-photorealistic.',
+    'Always begin imagePrompt with phrases like "Stylized 2D comic-book illustration of", "Hand-drawn cel-shaded graphic-novel illustration of", or "Animated 2D cinematic comic-panel illustration of".',
+    'Each videoPrompt must begin with exactly: "Animate the existing illustration without altering the original rendering style."',
+    'Each videoPrompt must describe only movement, camera motion, and environmental motion using illustrated motion, stylized animated movement, limited-animation feel, 2D multiplane motion, and comic-book animation feel.',
+    'Keep each videoPrompt grounded in the same scene and do not introduce new people, props, or locations that are not visible in the corresponding imagePrompt.',
     'Use concrete visual details from the narrative: locations, objects, actions, people, aftermath, and evidence when available.',
+    'The output must remain fully illustrated and stylized across image generation and image-to-video generation.',
+    'Never generate photorealistic, cinematic CGI, Pixar-style, Unreal Engine-style, or 3D-looking visuals.',
     'Do not use abstract narration language such as "the viewer", "this story", "the mystery deepens", or "history remembers".',
-    'Focus on scene content only and do not include style boilerplate, camera-format boilerplate, or safety boilerplate in the prompt text.',
+    'Never use these words or concepts in either prompt: photorealistic, hyper realistic, ultra detailed realism, movie still, realistic cinematic, realistic lighting, realistic shadows, volumetric fog, realistic particles, realistic skin, realistic cloth, physically based rendering, PBR, ray tracing, Unreal Engine, Octane render, live action, CGI realism.',
+    'Strongly prefer these style words where relevant: stylized 2D, comic-book illustration, hand-drawn, cel-shaded, graphic novel, ink outlines, painted textures, flat shading, animated illustration, limited animation, multiplane animation, non-photorealistic, illustrated haze, painted snow streaks, stylized atmospheric effects.',
+    'Do not include style boilerplate, camera-format boilerplate, safety boilerplate, numbering, commentary, or extra keys.',
     'Avoid graphic gore, hate, sexual content, brands, watermarks, copyrighted characters, and unsafe instructions.',
-    'Return only the 10 prompts.',
   ].join(' ');
 };
 

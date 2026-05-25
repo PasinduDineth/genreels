@@ -228,6 +228,29 @@ video {
   padding: 16px;
 }
 
+.prompt-copy,
+.gallery-caption-group {
+  display: grid;
+  gap: 6px;
+}
+
+.prompt-copy {
+  gap: 14px;
+}
+
+.prompt-copy-group {
+  display: grid;
+  gap: 6px;
+}
+
+.prompt-copy-group strong,
+.gallery-caption-group strong {
+  color: #9cb4ff;
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .prompt-card p,
 .gallery-caption p,
 .narrative-card p {
@@ -264,9 +287,33 @@ video {
   overflow: hidden;
 }
 
+.gallery-media-grid {
+  display: grid;
+  gap: 1px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .gallery-media {
   aspect-ratio: 9 / 16;
+  display: grid;
   background: rgba(255, 255, 255, 0.04);
+  overflow: hidden;
+  position: relative;
+}
+
+.gallery-media-label {
+  background: rgba(6, 12, 21, 0.72);
+  border-radius: 999px;
+  color: #f7f8fc;
+  font-size: 0.72rem;
+  font-weight: 700;
+  left: 10px;
+  letter-spacing: 0.08em;
+  padding: 6px 10px;
+  position: absolute;
+  text-transform: uppercase;
+  top: 10px;
+  z-index: 1;
 }
 
 .gallery-media img {
@@ -275,10 +322,33 @@ video {
   width: 100%;
 }
 
+.gallery-media video {
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.gallery-video-placeholder {
+  align-items: center;
+  color: #b9c5e7;
+  display: flex;
+  font-size: 0.9rem;
+  justify-content: center;
+  line-height: 1.5;
+  padding: 24px;
+  text-align: center;
+}
+
 .gallery-caption {
   display: grid;
   gap: 8px;
   padding: 14px;
+}
+
+.gallery-video-badge {
+  color: #7ef0b1;
+  font-size: 0.8rem;
+  font-weight: 700;
 }
 
 .status-grid {
@@ -516,6 +586,10 @@ video {
 
   .gallery-grid {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .gallery-media-grid {
+    grid-template-columns: 1fr;
   }
 
   .bundle-card {

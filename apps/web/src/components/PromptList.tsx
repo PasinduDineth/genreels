@@ -24,7 +24,16 @@ export function PromptList({prompts}: PromptListProps) {
           {prompts.map((prompt, index) => (
             <li className="prompt-card" key={prompt.id}>
               <span className="prompt-index">{String(index + 1).padStart(2, '0')}</span>
-              <p>{prompt.text}</p>
+              <div className="prompt-copy">
+                <div className="prompt-copy-group">
+                  <strong>Image prompt</strong>
+                  <p>{prompt.text}</p>
+                </div>
+                <div className="prompt-copy-group">
+                  <strong>Image-to-video prompt</strong>
+                  <p>{prompt.videoPrompt}</p>
+                </div>
+              </div>
             </li>
           ))}
         </ol>

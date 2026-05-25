@@ -2,6 +2,7 @@ import { AppError } from '../../lib/app-error.js';
 import { pollinationsClient } from '../pollinations/pollinations.client.js';
 import {
   normalizePromptScene,
+  normalizeVideoPrompt,
   splitPromptCandidates,
 } from './prompt-constraints.js';
 
@@ -23,37 +24,84 @@ const createFallbackPrompt = (topic: string, index: number) => {
   );
 };
 
-const dedupePrompts = (prompts: string[]) => {
-  const seen = new Set<string>();
-  const results: string[] = [];
+const createFallbackVideoPrompt = (topic: string, index: number) => {
+  return normalizeVideoPrompt(
+    `Scene ${index + 1} for ${topic}: bring the still image to life with restrained camera drift, believable subject motion, moving atmosphere, and a documentary-style cinematic reveal`,
+  );
+};
 
-  for (const prompt of prompts) {
-    const key = prompt.toLowerCase();
+type PromptPair = {
+  imagePrompt: string;
+  videoPrompt: string;
+};
+
+const dedupePromptPairs = (promptPairs: PromptPair[]) => {
+  const seen = new Set<string>();
+  const results: PromptPair[] = [];
+
+  for (const promptPair of promptPairs) {
+    const key = `${promptPair.imagePrompt.toLowerCase()}::${promptPair.videoPrompt.toLowerCase()}`;
     if (seen.has(key)) {
       continue;
     }
 
     seen.add(key);
-    results.push(prompt);
+    results.push(promptPair);
   }
 
   return results;
 };
 
-const enforcePromptCount = (topic: string, prompts: string[]) => {
-  const results = [...prompts];
+const enforcePromptCount = (topic: string, promptPairs: PromptPair[]) => {
+  const results = [...promptPairs];
 
   while (results.length < TARGET_PROMPT_COUNT) {
-    results.push(createFallbackPrompt(topic, results.length));
+    results.push({
+      imagePrompt: createFallbackPrompt(topic, results.length),
+      videoPrompt: createFallbackVideoPrompt(topic, results.length),
+    });
   }
 
   return results.slice(0, TARGET_PROMPT_COUNT);
 };
 
-export const normalizePromptPack = (topic: string, rawText: string) => {
+const parsePromptPairCandidates = (rawText: string): PromptPair[] => {
+  try {
+    const parsed = JSON.parse(rawText) as unknown;
+    if (Array.isArray(parsed)) {
+      return parsed
+        .filter((value): value is { imagePrompt?: unknown; videoPrompt?: unknown } =>
+          typeof value === 'object' && value !== null,
+        )
+        .map((value) => ({
+          imagePrompt: typeof value.imagePrompt === 'string' ? value.imagePrompt : '',
+          videoPrompt: typeof value.videoPrompt === 'string' ? value.videoPrompt : '',
+        }))
+        .filter((value) => value.imagePrompt.trim().length > 0 || value.videoPrompt.trim().length > 0);
+    }
+  } catch {
+    // Fall through to looser parsing.
+  }
+
   const candidates = splitPromptCandidates(rawText);
-  const normalized = candidates.map(normalizePromptScene);
-  const unique = dedupePrompts(normalized);
+  return candidates.map((candidate) => {
+    const imageMatch = candidate.match(/imagePrompt\s*[:=-]\s*(.+?)(?:\s+videoPrompt\s*[:=-]\s*|$)/i);
+    const videoMatch = candidate.match(/videoPrompt\s*[:=-]\s*(.+)$/i);
+
+    return {
+      imagePrompt: imageMatch?.[1] ?? candidate,
+      videoPrompt: videoMatch?.[1] ?? '',
+    };
+  });
+};
+
+export const normalizePromptPack = (topic: string, rawText: string) => {
+  const candidates = parsePromptPairCandidates(rawText);
+  const normalized = candidates.map((candidate) => ({
+    imagePrompt: normalizePromptScene(candidate.imagePrompt),
+    videoPrompt: normalizeVideoPrompt(candidate.videoPrompt),
+  }));
+  const unique = dedupePromptPairs(normalized);
   return enforcePromptCount(topic, unique);
 };
 
