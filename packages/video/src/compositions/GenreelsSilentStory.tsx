@@ -133,6 +133,7 @@ export const GenreelsSilentStory = ({
               durationInFrames={sceneDurationInFrames}
               imageSrc={imageSrc}
               motion={scene.motion}
+              videoDurationInSeconds={scene.videoDurationInSeconds}
               videoSrc={videoSrc}
             />
           </Sequence>
@@ -165,7 +166,36 @@ type SceneImageProps = {
   frame: number;
   imageSrc: string | null;
   motion: SceneMotion;
+  videoDurationInSeconds?: number;
   videoSrc: string | null;
+};
+
+const getVideoPlaybackRate = ({
+  fps,
+  slotDurationInFrames,
+  videoDurationInSeconds,
+}: {
+  fps: number;
+  slotDurationInFrames: number;
+  videoDurationInSeconds?: number;
+}) => {
+  if (
+    typeof videoDurationInSeconds !== "number" ||
+    !Number.isFinite(videoDurationInSeconds) ||
+    videoDurationInSeconds <= 0
+  ) {
+    return 1;
+  }
+
+  const slotDurationInSeconds = slotDurationInFrames / fps;
+  if (!Number.isFinite(slotDurationInSeconds) || slotDurationInSeconds <= 0) {
+    return 1;
+  }
+
+  const playbackRate = videoDurationInSeconds / slotDurationInSeconds;
+
+  // Slow clips down to fill their scene slot without freezing on a held frame.
+  return Math.min(1, Math.max(playbackRate, 0.35));
 };
 
 const SceneImage = ({
@@ -173,14 +203,21 @@ const SceneImage = ({
   frame,
   imageSrc,
   motion,
+  videoDurationInSeconds,
   videoSrc,
 }: SceneImageProps) => {
+  const {fps} = useVideoConfig();
   const vignetteOpacity = interpolate(frame, [0, durationInFrames], [0.22, 0.36]);
   const fadeOpacity = interpolate(
     frame,
     [0, 8, durationInFrames - 8, durationInFrames],
     [0, 1, 1, 0],
   );
+  const playbackRate = getVideoPlaybackRate({
+    fps,
+    slotDurationInFrames: durationInFrames,
+    videoDurationInSeconds,
+  });
 
   return (
     <AbsoluteFill
@@ -192,6 +229,7 @@ const SceneImage = ({
       {videoSrc ? (
         <OffthreadVideo
           muted
+          playbackRate={playbackRate}
           src={videoSrc}
           style={{
             height: "100%",
