@@ -70,7 +70,7 @@ type BundleManifest = {
     sceneCount: number;
   };
   topic: string;
-  version: 1 | 2;
+  version: 1 | 2 | 3;
 };
 
 const sanitizeSegment = (value: string) => {
@@ -155,18 +155,6 @@ export const createBundleArchive = async ({
     throw new AppError('A narrative is required to export a bundle.', 400, 'BUNDLE_NARRATIVE_REQUIRED');
   }
 
-  if (images.length !== 10) {
-    throw new AppError('Exactly 10 images are required to export a bundle.', 400, 'BUNDLE_IMAGE_COUNT_INVALID');
-  }
-
-  if (images.some((image) => !image.videoUrl)) {
-    throw new AppError(
-      'A complete bundle requires generated scene videos for all 10 images.',
-      400,
-      'BUNDLE_VIDEO_COUNT_INVALID',
-    );
-  }
-
   const zip = new JSZip();
   const imagesFolder = zip.folder('images');
   if (!imagesFolder) {
@@ -231,7 +219,7 @@ export const createBundleArchive = async ({
       sceneCount: imageEntries.length,
     },
     topic: topic.trim(),
-    version: 2,
+    version: 3,
   };
 
   const storyPackage = {
@@ -270,7 +258,7 @@ export const createBundleArchive = async ({
         'pan-right',
         'push-out',
         'push-in',
-      ][index],
+      ][index % 10],
       prompt: entry.promptText,
       sourceImageUrl: entry.sourceImageUrl ?? null,
       videoDurationInSeconds: entry.videoDurationInSeconds ?? null,
@@ -345,20 +333,8 @@ export const importBundleArchive = async (archive: Buffer) => {
   const zip = await JSZip.loadAsync(archive);
   const manifest = await getRequiredJson<BundleManifest>(zip, 'manifest.json');
 
-  if (manifest.format !== 'genreels-bundle' || ![1, 2].includes(manifest.version)) {
+  if (manifest.format !== 'genreels-bundle' || ![1, 2, 3].includes(manifest.version)) {
     throw new AppError('Unsupported bundle format.', 400, 'BUNDLE_IMPORT_FORMAT_INVALID');
-  }
-
-  if (manifest.images.length !== 10) {
-    throw new AppError('Bundle must include exactly 10 images.', 400, 'BUNDLE_IMPORT_IMAGE_COUNT_INVALID');
-  }
-
-  if (manifest.images.some((imageEntry) => !imageEntry.videoFile)) {
-    throw new AppError(
-      'Bundle must include generated scene videos for all 10 images.',
-      400,
-      'BUNDLE_IMPORT_VIDEO_COUNT_INVALID',
-    );
   }
 
   await Promise.all([

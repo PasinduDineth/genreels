@@ -76,12 +76,15 @@ const normalizeCaptionForRender = (caption: RenderInput["captions"][number]) => 
 
 export const GenreelsSilentStory = ({
   audioUrl = fallbackInput.audioUrl,
+  backgroundMusicUrl = fallbackInput.backgroundMusicUrl,
+  backgroundMusicVolume,
   captions = fallbackInput.captions,
   scenes = fallbackInput.scenes,
 }: RenderInput) => {
   const frame = useCurrentFrame();
   const {durationInFrames, fps} = useVideoConfig();
   const [fontHandle] = useState(() => delayRender());
+  const resolvedBackgroundMusicVolume = backgroundMusicVolume ?? fallbackInput.backgroundMusicVolume ?? 0.06;
 
   useEffect(() => {
     loadFont()
@@ -107,6 +110,29 @@ export const GenreelsSilentStory = ({
   return (
     <AbsoluteFill style={{backgroundColor: "#05070d"}}>
       {audioUrl ? <Audio src={audioUrl} /> : null}
+      {backgroundMusicUrl ? (
+        <Audio
+          src={backgroundMusicUrl}
+          loop
+          volume={(currentFrame) => {
+            const fadeIn = interpolate(currentFrame, [0, 20], [0, resolvedBackgroundMusicVolume], {
+              extrapolateLeft: "clamp",
+              extrapolateRight: "clamp",
+            });
+            const fadeOut = interpolate(
+              currentFrame,
+              [Math.max(durationInFrames - 30, 0), durationInFrames],
+              [resolvedBackgroundMusicVolume, 0],
+              {
+                extrapolateLeft: "clamp",
+                extrapolateRight: "clamp",
+              },
+            );
+
+            return Math.min(fadeIn, fadeOut, resolvedBackgroundMusicVolume);
+          }}
+        />
+      ) : null}
       {scenes.map((scene, index) => {
         const sceneStart = Math.floor((index * durationInFrames) / scenes.length);
         const sceneEnd = Math.floor(((index + 1) * durationInFrames) / scenes.length);

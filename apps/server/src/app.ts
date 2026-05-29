@@ -1,18 +1,22 @@
 import cors from 'cors';
 import express from 'express';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 import { AppError } from './lib/app-error.js';
 import { createApiRouter } from './routes/index.js';
 import { env } from './config/env.js';
+import {
+  backgroundMusicDirectory,
+  ensureMediaDirectories,
+  generatedAudioDirectory,
+  generatedImagesDirectory,
+  generatedVideosDirectory,
+  renderedDirectory,
+} from './lib/media-paths.js';
 
 export const app = express();
-const currentDirectory = path.dirname(fileURLToPath(import.meta.url));
-const renderedDirectory = path.resolve(currentDirectory, '../../../rendered');
-const generatedImagesDirectory = path.resolve(currentDirectory, '../../../generated-images');
-const generatedAudioDirectory = path.resolve(currentDirectory, '../../../generated-audio');
-const generatedVideosDirectory = path.resolve(currentDirectory, '../../../generated-videos');
+void ensureMediaDirectories().catch((error) => {
+  console.error('Failed to create media directories on startup.', error);
+});
 
 app.use(
   cors({
@@ -25,9 +29,11 @@ app.use('/rendered', express.static(renderedDirectory));
 app.use('/generated-images', express.static(generatedImagesDirectory));
 app.use('/generated-audio', express.static(generatedAudioDirectory));
 app.use('/generated-videos', express.static(generatedVideosDirectory));
+app.use('/background-music', express.static(backgroundMusicDirectory));
 
 app.get('/', (_request, response) => {
   response.json({
+    backgroundMusicDirectory,
     name: 'Genreels API',
     status: 'ok',
   });

@@ -38,6 +38,8 @@ export const CaptionSchema = z.object({
 export const RenderInputSchema = z.object({
   audioDurationInSeconds: z.number().positive().nullable().optional(),
   audioUrl: z.string().min(1).nullable().optional(),
+  backgroundMusicUrl: z.string().min(1).nullable().optional(),
+  backgroundMusicVolume: z.number().min(0).max(1).nullable().optional(),
   captions: z.array(CaptionSchema).optional().default([]),
   topic: z.string().min(1),
   scenes: z
@@ -65,6 +67,8 @@ const defaultMotions: SceneMotion[] = [
 export const DEFAULT_RENDER_INPUT: RenderInput = {
   audioDurationInSeconds: null,
   audioUrl: null,
+  backgroundMusicUrl: null,
+  backgroundMusicVolume: null,
   captions: [],
   topic: "The Dyatlov Pass Incident",
   scenes: Array.from({length: TOTAL_SCENES}, (_, index) => ({

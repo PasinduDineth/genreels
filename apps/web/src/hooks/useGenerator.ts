@@ -398,12 +398,12 @@ export function useGenerator() {
   }, [pushStatus, state.images, state.narrative, state.topic]);
 
   const downloadBundle = useCallback(async () => {
-    if (!state.narrative || !state.images.length) {
-      pushStatus('error', 'Generate or import a full story package before downloading a bundle.');
+    if (!state.narrative?.text.trim()) {
+      pushStatus('error', 'Generate or import at least a narrative before downloading a bundle.');
       return;
     }
 
-    pushStatus('info', 'Packaging audio, images, scene videos, captions, prompts, and render metadata into a zip.');
+    pushStatus('info', 'Packaging the current topic, narrative, prompts, images, optional scene videos, and render metadata into a zip.');
 
     try {
       const {blob, fileName} = await apiClient.exportBundle({
@@ -460,10 +460,7 @@ export function useGenerator() {
       setTopic,
     },
     derived: {
-      canDownloadBundle:
-        Boolean(state.narrative?.audioUrl) &&
-        state.prompts.length === TARGET_SCENE_COUNT &&
-        hasCompleteSceneVideoSet(state.images),
+      canDownloadBundle: Boolean(state.narrative?.text.trim()),
       canGenerate,
       canRender,
     },

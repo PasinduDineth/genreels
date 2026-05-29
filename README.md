@@ -37,9 +37,11 @@ Genreels can now export a complete reusable story package as a zip and later imp
 
 ### Export a bundle
 
-1. Generate a story normally until the 10 images and narration are ready.
+1. Generate as much of the story as you want.
 2. In the `Video preview` panel, click `Download zip`.
 3. Save the exported bundle anywhere you want for later reuse.
+
+Bundles can now be exported at any stage after the narrative exists. If prompts, images, audio, or scene videos are missing, the zip simply contains the progress generated so far.
 
 ### Import a bundle and render later
 
@@ -47,12 +49,13 @@ Genreels can now export a complete reusable story package as a zip and later imp
 2. In the `Video preview` panel, click `Choose zip`.
 3. Select a previously exported Genreels bundle.
 4. Wait for the import confirmation in the status feed.
-5. Click `Render video`.
+5. Continue generating anything still missing, or click `Render video` once the required assets are ready.
 
 The imported bundle repopulates the topic, narrative, prompts, captions, images, and narration audio in the UI. No regeneration step is required before rendering.
 
 ### Bundle format notes
 
 - The current import path expects a Genreels-generated zip with `manifest.json`.
-- Bundles should contain exactly 10 images because the current video renderer requires 10 scenes.
+- Final video rendering still requires exactly 10 images, but bundles themselves can now contain partial progress.
 - Imported media is copied into the local `generated-audio` and `generated-images` folders so the normal render pipeline can use it immediately.
+- Drop optional soundtrack files into the local `background-music` folder. Final renders will randomly choose one track and mix it quietly behind the narration.

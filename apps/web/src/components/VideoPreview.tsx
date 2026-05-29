@@ -48,7 +48,7 @@ export function VideoPreview({
             <p className="eyebrow">Bundle Export</p>
             <strong>Download reusable render package</strong>
             <p className="helper-text">
-              Includes all images, all scene videos, narration audio, captions, prompts, narrative, and render metadata in one zip.
+              Downloads the current project state at any point, including any available images, scene videos, narration audio, captions, prompts, narrative, and render metadata.
             </p>
           </div>
           <button

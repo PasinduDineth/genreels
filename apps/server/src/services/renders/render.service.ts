@@ -2,16 +2,18 @@ import { bundle } from '@remotion/bundler';
 import { renderMedia, selectComposition } from '@remotion/renderer';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { parseFile } from 'music-metadata';
 import { AppError } from '../../lib/app-error.js';
 import { env } from '../../config/env.js';
+import {
+  backgroundMusicDirectory,
+  ensureMediaDirectories,
+  renderedDirectory,
+  workspaceRoot,
+} from '../../lib/media-paths.js';
 
 const TARGET_IMAGE_COUNT = 10;
-const currentDirectory = path.dirname(fileURLToPath(import.meta.url));
-const workspaceRoot = path.resolve(currentDirectory, '../../../../../');
 const remotionEntry = path.resolve(workspaceRoot, 'packages/video/src/index.ts');
-const renderedDirectory = path.resolve(workspaceRoot, 'rendered');
 const compositionId = 'GenreelsSilentStory';
 let bundlePromise: Promise<string> | null = null;
 const defaultMotions = [
@@ -44,6 +46,9 @@ type KickoffRenderInput = {
   images: unknown[];
   topic: string;
 };
+
+const supportedBackgroundMusicExtensions = new Set(['.mp3', '.wav', '.m4a', '.aac', '.ogg', '.flac']);
+const defaultBackgroundMusicVolume = 0.06;
 
 type RenderCaption = {
   endMs?: unknown;
@@ -184,7 +189,22 @@ const normalizeImages = (images: unknown[]) => {
 };
 
 const ensureRenderedDirectory = async () => {
-  await fs.mkdir(renderedDirectory, { recursive: true });
+  await ensureMediaDirectories();
+};
+
+const pickBackgroundMusicUrl = async () => {
+  const entries = await fs.readdir(backgroundMusicDirectory, { withFileTypes: true });
+  const candidates = entries
+    .filter((entry) => entry.isFile())
+    .map((entry) => entry.name)
+    .filter((name) => supportedBackgroundMusicExtensions.has(path.extname(name).toLowerCase()));
+
+  if (!candidates.length) {
+    return null;
+  }
+
+  const selected = candidates[Math.floor(Math.random() * candidates.length)];
+  return `${env.publicBaseUrl.replace(/\/$/, '')}/background-music/${encodeURIComponent(selected)}`;
 };
 
 const getBundleLocation = () => {
@@ -238,10 +258,13 @@ export const kickoffRender = async ({
       audioUrl: normalizedAudioUrl,
       captions: normalizedCaptions,
     });
+    const backgroundMusicUrl = await pickBackgroundMusicUrl();
 
     const inputProps = {
       audioDurationInSeconds: resolvedDurationInSeconds,
       audioUrl: normalizedAudioUrl,
+      backgroundMusicUrl,
+      backgroundMusicVolume: backgroundMusicUrl ? defaultBackgroundMusicVolume : null,
       captions: normalizedCaptions,
       scenes: normalizedImages,
       topic: normalizedTopic,

@@ -36,8 +36,7 @@ export const env = {
   minimaxSpeechBaseUrl:
     process.env.MINIMAX_SPEECH_BASE_URL ?? 'https://api.minimax.io/v1/t2a_v2',
   minimaxSpeechModel: process.env.MINIMAX_SPEECH_MODEL ?? 'speech-02-turbo',
-  minimaxSpeechVoiceId:
-    process.env.MINIMAX_SPEECH_VOICE_ID ?? 'ttv-voice-2025062518302725-Nrot8sG4',
+  minimaxSpeechVoiceId: process.env.MINIMAX_SPEECH_VOICE_ID ?? 'English_Resonant_Man',
   minimaxSpeechAudioFormat: process.env.MINIMAX_SPEECH_AUDIO_FORMAT ?? 'mp3',
   minimaxSpeechBitrate: toNumber(process.env.MINIMAX_SPEECH_BITRATE, 128000),
   minimaxSpeechChannelCount: toNumber(process.env.MINIMAX_SPEECH_CHANNEL_COUNT, 1),
@@ -49,12 +48,12 @@ export const env = {
   minimaxVideoBaseUrl:
     process.env.MINIMAX_VIDEO_BASE_URL ?? 'https://api.minimax.io/v1/video_generation',
   minimaxVideoEnabled: process.env.MINIMAX_VIDEO_ENABLED !== 'false',
-  minimaxVideoModel: process.env.MINIMAX_VIDEO_MODEL ?? 'MiniMax-Hailuo-2.3',
+  minimaxVideoModel: process.env.MINIMAX_VIDEO_MODEL ?? 'MiniMax-Hailuo-02',
   minimaxVideoPollIntervalMs: toNumber(process.env.MINIMAX_VIDEO_POLL_INTERVAL_MS, 5000),
   minimaxVideoPollMaxAttempts: toNumber(process.env.MINIMAX_VIDEO_POLL_MAX_ATTEMPTS, 40),
   minimaxVideoQueryUrl:
     process.env.MINIMAX_VIDEO_QUERY_URL ?? 'https://api.minimax.io/v1/query/video_generation',
-  minimaxVideoResolution: process.env.MINIMAX_VIDEO_RESOLUTION ?? '768P',
+  minimaxVideoResolution: process.env.MINIMAX_VIDEO_RESOLUTION ?? '512P',
   minimaxVideoDurationSeconds: toNumber(process.env.MINIMAX_VIDEO_DURATION_SECONDS, 6),
   openRouterApiKey: process.env.OPENROUTER_API_KEY?.trim() || null,
   openRouterBaseUrl: process.env.OPENROUTER_BASE_URL ?? 'https://openrouter.ai/api/v1',
