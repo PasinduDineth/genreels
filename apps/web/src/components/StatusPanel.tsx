@@ -2,6 +2,8 @@ import type {GenerationStatus, StatusMessage} from '../types';
 
 interface StatusPanelProps {
   narrativeStatus: GenerationStatus;
+  audioStatus: GenerationStatus;
+  socialMetadataStatus: GenerationStatus;
   promptStatus: GenerationStatus;
   imageStatus: GenerationStatus;
   sceneVideoStatus: GenerationStatus;
@@ -26,6 +28,8 @@ function StatusPill({
 
 export function StatusPanel({
   narrativeStatus,
+  audioStatus,
+  socialMetadataStatus,
   promptStatus,
   imageStatus,
   sceneVideoStatus,
@@ -43,6 +47,8 @@ export function StatusPanel({
 
       <div className="status-grid">
         <StatusPill label="Narrative" status={narrativeStatus} />
+        <StatusPill label="Audio" status={audioStatus} />
+        <StatusPill label="Shorts SEO" status={socialMetadataStatus} />
         <StatusPill label="Prompts" status={promptStatus} />
         <StatusPill label="Images" status={imageStatus} />
         <StatusPill label="Scene Video" status={sceneVideoStatus} />

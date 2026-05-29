@@ -17,6 +17,8 @@ import type {
   PromptGenerationResponse,
   PromptItem,
   CaptionItem,
+  SocialMetadataGenerationRequest,
+  SocialMetadataGenerationResponse,
   SceneVideoGenerationRequest,
   SceneVideoGenerationResponse,
   VideoRenderRequest,
@@ -145,6 +147,24 @@ export const apiClient = {
     }
 
     return requestJson<AudioGenerationResponse>(`${API_BASE_URL}/audio/generate`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async generateSocialMetadata(
+    payload: SocialMetadataGenerationRequest,
+  ): Promise<SocialMetadataGenerationResponse> {
+    if (USE_MOCKS) {
+      await sleep(500);
+      return {
+        title: '9 Hikers Vanished Into Russia’s Deadliest Mystery',
+        description: 'A freezing night, a torn tent, and clues that still make Dyatlov Pass impossible to explain.',
+        hashtags: ['#dyatlovpass', '#historicalmystery', '#truestory', '#unsolved', '#historytok', '#shorts'],
+      };
+    }
+
+    return requestJson<SocialMetadataGenerationResponse>(`${API_BASE_URL}/social-metadata`, {
       method: 'POST',
       body: JSON.stringify(payload),
     });

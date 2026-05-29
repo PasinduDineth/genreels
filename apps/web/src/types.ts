@@ -38,6 +38,12 @@ export interface VideoAsset {
   durationInSeconds?: number;
 }
 
+export interface SocialMetadataAsset {
+  title: string;
+  description: string;
+  hashtags: string[];
+}
+
 export interface StatusMessage {
   id: string;
   tone: 'info' | 'success' | 'error';
@@ -76,6 +82,13 @@ export interface AudioGenerationResponse {
   captions: CaptionItem[];
   fileName: string;
 }
+
+export interface SocialMetadataGenerationRequest {
+  narrative: string;
+  topic: string;
+}
+
+export interface SocialMetadataGenerationResponse extends SocialMetadataAsset {}
 
 export interface ImageGenerationRequest {
   prompts: Array<{
@@ -127,11 +140,13 @@ export interface BundleImportResponse {
 export interface AppState {
   topic: string;
   narrative: NarrativeAsset | null;
+  socialMetadata: SocialMetadataAsset | null;
   prompts: PromptItem[];
   images: ImageAsset[];
   video: VideoAsset | null;
   audioStatus: GenerationStatus;
   narrativeStatus: GenerationStatus;
+  socialMetadataStatus: GenerationStatus;
   promptStatus: GenerationStatus;
   imageStatus: GenerationStatus;
   sceneVideoStatus: GenerationStatus;

@@ -1,15 +1,23 @@
 interface TopicComposerProps {
   topic: string;
-  disabled?: boolean;
   onTopicChange: (value: string) => void;
-  onGenerate: () => void;
+  onGenerateNarrative: () => void;
+  onGenerateAudio: () => void;
+  onGenerateVideo: () => void;
+  canGenerateNarrative: boolean;
+  canGenerateAudio: boolean;
+  canGenerateVideo: boolean;
 }
 
 export function TopicComposer({
   topic,
-  disabled = false,
+  canGenerateAudio,
+  canGenerateNarrative,
+  canGenerateVideo,
+  onGenerateAudio,
+  onGenerateNarrative,
+  onGenerateVideo,
   onTopicChange,
-  onGenerate,
 }: TopicComposerProps) {
   return (
     <section className="panel panel-hero">
@@ -22,11 +30,10 @@ export function TopicComposer({
       </div>
 
       <p className="panel-copy">
-        Enter a real mystery, unexplained event, or strange true story. The MVP
-        flow now writes a short narrative first, turns that storyline into ten
-        paired image and image-to-video prompts, generates all ten illustrated
-        keyframes, then uses those frames to build fully illustrated scene
-        videos before the final vertical render.
+        Enter a real mystery, unexplained event, or strange true story. First
+        generate the narrative, edit it until it feels right, then generate the
+        narration audio, preview it, and finally generate the full video
+        pipeline from the approved story.
       </p>
 
       <label className="field">
@@ -43,14 +50,30 @@ export function TopicComposer({
       <div className="action-row">
         <button
           className="button button-primary"
-          disabled={disabled}
-          onClick={onGenerate}
+          disabled={!canGenerateNarrative}
+          onClick={onGenerateNarrative}
           type="button"
         >
-          Generate story
+          Generate narrative
+        </button>
+        <button
+          className="button button-secondary"
+          disabled={!canGenerateAudio}
+          onClick={onGenerateAudio}
+          type="button"
+        >
+          Generate audio
+        </button>
+        <button
+          className="button button-secondary"
+          disabled={!canGenerateVideo}
+          onClick={onGenerateVideo}
+          type="button"
+        >
+          Generate video
         </button>
         <p className="helper-text">
-          Full pipeline: narrative, audio, 10 prompt pairs, 10 still images, 10 scene videos, and final render.
+          Flow: narrative, edit, audio preview, then prompts, images, scene videos, and final render.
         </p>
       </div>
     </section>

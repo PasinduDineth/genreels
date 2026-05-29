@@ -11,6 +11,12 @@ type NarrativeGenerationRequest = {
   feedback?: string;
 };
 
+type SocialMetadataGenerationRequest = {
+  narrative: string;
+  topic?: string;
+  feedback?: string;
+};
+
 type PollinationsMessage = {
   role: 'system' | 'user';
   content: string;
@@ -18,23 +24,92 @@ type PollinationsMessage = {
 
 const createNarrativeSystemMessage = () => {
   return [
-    'Write one documentary-style true-story narrative between 150 and 180 words.',
-    'Target about 165 to 175 words for safety.',
-    'The first sentence must be an extremely strong hook similar to a viral YouTube or TikTok documentary opener.',
-    'The narration must feel cinematic, emotionally vivid, suspenseful, and grounded in reality while remaining historically accurate.',
-    'Use concrete people, places, objects, actions, discoveries, and consequences whenever they are known.',
-    'Prioritize strong visual moments and escalating tension that can be clearly illustrated in 10 sequential cinematic scenes.',
-    'Use emotionally vivid and visually concrete descriptions instead of abstract historical summaries.',
-    'Prefer short and medium-length sentences. Avoid overly long compound sentences. Most sentences should express only one major visual action or event.',
-    'The narration should feel sharp, punchy, immersive, and easy to follow in short-form video voiceovers.',
-    'The story should progress naturally through setup, escalation, danger, discovery, aftermath, and unresolved mystery or emotional payoff.',
-    'Keep the pacing tight and immersive.',
-    'Avoid filler exposition and avoid sounding like a textbook or encyclopedia.',
-    'The paragraph must sound like real narration, not like instructions about narration.',
-    'Before responding, count the words and make sure the final paragraph stays within the required range.',
-    'Do not use meta phrasing such as "this short", "the viewer", "the goal is", "by the end", or "this story opens with".',
-    'Do not use hashtags, bullet points, markdown, scene numbers, or emojis.',
-    'Return only one paragraph.',
+    'Write one documentary-style true story narrative between 150 and 180 words.',
+    'Target 165 to 175 words.',
+    'Return exactly one paragraph.',
+    'Return only the story.',
+    'Do not use markdown, bullet points, hashtags, emojis, or scene numbers.',
+    'The first sentence must be a shocking viral hook.',
+    'The hook must reveal a surprising outcome, danger, mystery, or impossible claim.',
+    'The hook must create immediate curiosity.',
+    'Do not start with birth dates, occupations, locations, or background information.',
+    'Start as close as possible to the most dramatic moment.',
+    'Write for TikTok and YouTube Shorts voiceovers.',
+    'The narration must feel cinematic, urgent, emotional, and easy to read aloud.',
+    'Use simple spoken English.',
+    'Avoid textbook language, encyclopedia language, academic language, and poetic language.',
+    'Average sentence length should be 8 to 12 words.',
+    'Maximum sentence length is 16 words.',
+    'Mix short and medium sentences.',
+    'Do not make every sentence the same length.',
+    'One sentence should express one main idea or event.',
+    'Most sentences should contain no commas.',
+    'Never use more than one comma in a sentence.',
+    'Avoid semicolons.',
+    'Avoid em dashes.',
+    'Avoid parentheses.',
+    'Choose one main dramatic incident and build the story around it.',
+    'Stay inside one dramatic sequence as much as possible.',
+    'Do not try to cover the person’s entire life.',
+    'Do not list multiple landmarks, arrests, dates, or repeated examples unless they are essential.',
+    'Use other facts only if they increase tension in the main incident.',
+    'Do not write: He sold this. He sold that. He got arrested. He returned.',
+    'Do not include every known fact.',
+    'Imagine the story as 10 visual scenes.',
+    'Each sentence should describe something the audience could see happening.',
+    'Prefer actions over explanations.',
+    'Focus on visible actions, human decisions, discoveries, mistakes, danger, conflict, survival, and consequences.',
+    'Do not write isolated factual statements.',
+    'Do not stack facts without dramatic connection.',
+    'Do not write biography summaries.',
+    'Do not narrate a timeline of events.',
+    'Do not repeatedly start sentences with dates, years, or the same subject.',
+    'Do not summarize events.',
+    'Show events unfolding moment by moment.',
+    'Present facts through actions and consequences.',
+    'Whenever possible, show what people did, saw, believed, discovered, lost, or survived.',
+    'Every sentence should cause the next sentence.',
+    'Every sentence should answer one question while creating another.',
+    'Connect events through clear cause and effect.',
+    'Make each sentence pull the next sentence forward.',
+    'Avoid sequences of unrelated factual statements.',
+    'Build tension continuously.',
+    'Every sentence must create curiosity, tension, surprise, danger, mystery, or consequence.',
+    'Every 3 to 4 sentences should noticeably raise the stakes.',
+    'Use specific names, places, and objects when known.',
+    'Use dates only when they increase drama or are essential to understanding the event.',
+    'Do not invent facts.',
+    'Do not invent dates, prices, body counts, arrest counts, prison sentences, quotes, letters, diaries, police records, witnesses, documents, conversations, or final revelations.',
+    'Only use specific details provided in the source material.',
+    'If a detail is unknown, describe it generally.',
+    'Structure the story naturally as hook, setup, escalation, discovery, consequence, and payoff.',
+    'Delay the most important revelation until later in the story when possible.',
+    'Do not mention viewers, narration, storytelling, content creation, or social media.',
+    'If a sentence sounds like a Wikipedia article, rewrite it as a visual event.',
+    'If a sentence only communicates information, rewrite it to include tension or consequence.',
+    'Do not append modern-day examples, comparisons, lessons, morals, or commentary.',
+    'The ending must emerge naturally from the story.',
+    'End on the strongest verified consequence, mystery, irony, or twist already present in the source.',
+    'The final 2 sentences must feel memorable and emotionally satisfying.',
+    'Bad example: He became famous for the scam.',
+    'Good example: Within weeks, strangers crossed the city looking for him.',
+    'Bad example: Police became suspicious.',
+    'Good example: Police officers started waiting beside the bridge entrances.',
+    'Bad example: The scam fooled many people.',
+    'Good example: Buyers arrived carrying documents they believed proved ownership.',
+    'Bad example: He sold Grant’s Tomb, the Statue of Liberty, and City Hall.',
+    'Good example: That morning, one buyer stood at the bridge believing it was his.',
+    'Style example:',
+    'A man claimed he owned a bridge.',
+    'Nobody believed him.',
+    'Then he produced official papers.',
+    'Within hours, buyers handed over their savings.',
+    'Weeks later, workers arrived to collect tolls.',
+    'That was when police stopped them.',
+    'The papers were fake.',
+    'The money was gone.',
+    'So was the man.',
+    'Count the words before responding.',
   ].join(' ');
 };
 
@@ -58,6 +133,22 @@ const createPromptGeneratorSystemMessage = () => {
     'Strongly prefer these style words where relevant: stylized 2D, comic-book illustration, hand-drawn, cel-shaded, graphic novel, ink outlines, painted textures, flat shading, animated illustration, limited animation, multiplane animation, non-photorealistic, illustrated haze, painted snow streaks, stylized atmospheric effects.',
     'Do not include style boilerplate, camera-format boilerplate, safety boilerplate, numbering, commentary, or extra keys.',
     'Avoid graphic gore, hate, sexual content, brands, watermarks, copyrighted characters, and unsafe instructions.',
+  ].join(' ');
+};
+
+const createSocialMetadataSystemMessage = () => {
+  return [
+    'Generate YouTube Shorts style SEO metadata in valid JSON.',
+    'Return only one JSON object with exactly three keys: "title", "description", and "hashtags".',
+    'The title must be between 40 and 60 characters total.',
+    'The title must use a strong viral hook, feel emotionally compelling, and stay SEO-friendly.',
+    'The description must be between 50 and 150 characters total.',
+    'The description must be punchy, curiosity-driven, SEO-optimized, and clearly related to the narrative.',
+    'The hashtags value must be a JSON array of exactly 5 unique hashtag strings.',
+    'Each hashtag must begin with # and be relevant to the story, mystery, history, or true-event niche.',
+    'Do not include #shorts in the model output because the application will add it automatically.',
+    'Do not use markdown, explanations, labels, code fences, or extra keys.',
+    'Avoid clickbait that feels fake. The hook should feel viral but still grounded in the story.',
   ].join(' ');
 };
 
@@ -182,5 +273,30 @@ export const pollinationsClient = {
     };
 
     return requestTextViaMiniMax(env.minimaxPromptModel, requestBody);
+  },
+
+  async generateSocialMetadataText({
+    feedback,
+    narrative,
+    topic,
+  }: SocialMetadataGenerationRequest): Promise<string> {
+    const requestBody = {
+      messages: [
+        {
+          role: 'system',
+          content: createSocialMetadataSystemMessage(),
+        },
+        {
+          role: 'user',
+          content: [
+            `Topic: ${topic ?? 'Unknown true story'}`,
+            `Narrative: ${narrative}`,
+            feedback ? `Revision notes: ${feedback}` : null,
+          ].filter(Boolean).join('\n'),
+        },
+      ] satisfies PollinationsMessage[],
+    };
+
+    return requestTextViaMiniMax(env.minimaxNarrativeModel, requestBody);
   },
 };

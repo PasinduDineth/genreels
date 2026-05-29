@@ -3,23 +3,17 @@ import type {VideoAsset} from '../types';
 
 interface VideoPreviewProps {
   canDownloadBundle: boolean;
-  canRender: boolean;
   isBundleReady: boolean;
-  isRendering: boolean;
   onDownloadBundle: () => void;
   onImportBundle: (file: File) => void;
-  onRender: () => void;
   video: VideoAsset | null;
 }
 
 export function VideoPreview({
   canDownloadBundle,
-  canRender,
   isBundleReady,
-  isRendering,
   onDownloadBundle,
   onImportBundle,
-  onRender,
   video,
 }: VideoPreviewProps) {
   const inputId = useId();
@@ -32,14 +26,7 @@ export function VideoPreview({
           <p className="eyebrow">Step 4</p>
           <h2>Video preview</h2>
         </div>
-        <button
-          className="button button-secondary"
-          disabled={!canRender}
-          onClick={onRender}
-          type="button"
-        >
-          {isRendering ? 'Generating clips + rendering...' : 'Render video'}
-        </button>
+        <span className="badge badge-soft">Final output</span>
       </div>
 
       <div className="bundle-tools">
