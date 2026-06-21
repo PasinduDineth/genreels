@@ -11,6 +11,10 @@ export function NarrativePanel({
   audioStatus,
   onNarrativeChange,
 }: NarrativePanelProps) {
+  const narrativeText = narrative?.text ?? '';
+  const narrativeWordCount = narrative?.wordCount ?? 0;
+  const hasAudio = Boolean(narrative?.audioUrl);
+
   return (
     <section className="panel">
       <div className="panel-header">
@@ -18,45 +22,40 @@ export function NarrativePanel({
           <p className="eyebrow">Step 1</p>
           <h2>Narrative</h2>
         </div>
-        <span className="badge">{narrative ? `${narrative.wordCount} words` : '0/160'}</span>
+        <span className="badge">{narrativeWordCount} words</span>
       </div>
 
-      {narrative ? (
-        <div className="narrative-stack">
-          <label className="field">
-            <span className="field-label">Editable narrative</span>
-            <textarea
-              className="field-input field-textarea narrative-editor"
-              rows={8}
-              value={narrative.text}
-              onChange={(event) => onNarrativeChange(event.target.value)}
-            />
-          </label>
+      <div className="narrative-stack">
+        <label className="field">
+          <span className="field-label">Editable narrative</span>
+          <textarea
+            className="field-input field-textarea narrative-editor"
+            rows={8}
+            placeholder="Paste or write the narrative here, or generate one from the topic."
+            value={narrativeText}
+            onChange={(event) => onNarrativeChange(event.target.value)}
+          />
+        </label>
 
-          <div className="narrative-audio-card">
-            <div>
-              <strong>Audio preview</strong>
-              <p className="helper-text">
-                {narrative.audioUrl
-                  ? 'Preview the generated narration before moving on to video generation.'
-                  : 'Generate audio after editing the narrative to unlock narration preview.'}
-              </p>
-            </div>
-
-            {narrative.audioUrl ? (
-              <audio controls src={narrative.audioUrl} />
-            ) : (
-              <span className={`audio-status-chip audio-status-${audioStatus}`}>
-                Audio status: {audioStatus}
-              </span>
-            )}
+        <div className="narrative-audio-card">
+          <div>
+            <strong>Audio preview</strong>
+            <p className="helper-text">
+              {hasAudio
+                ? 'Preview the generated narration before moving on to video generation.'
+                : 'You can type the narrative manually or generate it from the topic, then generate audio to unlock narration preview.'}
+            </p>
           </div>
+
+          {hasAudio ? (
+            <audio controls src={narrative?.audioUrl} />
+          ) : (
+            <span className={`audio-status-chip audio-status-${audioStatus}`}>
+              Audio status: {audioStatus}
+            </span>
+          )}
         </div>
-      ) : (
-        <div className="empty-state">
-          A 150 to 160 word story narrative will appear here first, and you will be able to edit it before audio generation.
-        </div>
-      )}
+      </div>
     </section>
   );
 }

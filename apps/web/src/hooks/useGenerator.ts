@@ -17,6 +17,11 @@ import type {
   VideoAsset,
 } from '../types';
 
+const createEmptyNarrative = (): NarrativeAsset => ({
+  text: '',
+  wordCount: 0,
+});
+
 type Action =
   | {type: 'topic/set'; payload: string}
   | {type: 'narrative/text-set'; payload: string}
@@ -39,7 +44,7 @@ type Action =
 
 const initialState: AppState = {
   topic: 'The Dyatlov Pass incident',
-  narrative: null,
+  narrative: createEmptyNarrative(),
   socialMetadata: null,
   prompts: [],
   images: [],
@@ -62,15 +67,14 @@ function reducer(state: AppState, action: Action): AppState {
         topic: action.payload,
       };
     case 'narrative/text-set':
-      return state.narrative
-        ? {
-            ...state,
-            narrative: {
-              text: action.payload,
-              wordCount: action.payload.trim().split(/\s+/).filter(Boolean).length,
-            },
-          }
-        : state;
+      return {
+        ...state,
+        narrative: {
+          ...state.narrative,
+          text: action.payload,
+          wordCount: action.payload.trim().split(/\s+/).filter(Boolean).length,
+        },
+      };
     case 'narrative/status':
       return {
         ...state,
@@ -279,7 +283,7 @@ export function useGenerator() {
     dispatch({type: 'scene-video/status', payload: 'idle'});
     dispatch({type: 'render/status', payload: 'idle'});
     dispatch({type: 'social-metadata/status', payload: 'idle'});
-    dispatch({type: 'narrative/set', payload: null});
+    dispatch({type: 'narrative/set', payload: createEmptyNarrative()});
     dispatch({type: 'social-metadata/set', payload: null});
     dispatch({type: 'prompts/set', payload: []});
     dispatch({type: 'images/set', payload: []});
