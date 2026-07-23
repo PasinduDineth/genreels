@@ -7,6 +7,7 @@ import { createImagesRouter } from './images.routes.js';
 import { createNarrativeRouter } from './narratives.routes.js';
 import { createPromptRouter } from './prompts.routes.js';
 import { createRenderRouter } from './renders.routes.js';
+import { createWorkflowRouter } from './workflow.routes.js';
 import { createSceneVideosRouter } from './scene-videos.routes.js';
 import { createSocialMetadataRouter } from './social-metadata.routes.js';
 
@@ -25,6 +26,7 @@ export const createApiRouter = () => {
   router.use('/social-metadata', createSocialMetadataRouter());
   router.use('/render', createRenderRouter());
   router.use('/renders', createRenderRouter());
+  router.use('/workflow', createWorkflowRouter());
 
   return router;
 };

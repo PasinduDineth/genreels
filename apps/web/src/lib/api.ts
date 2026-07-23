@@ -3,6 +3,7 @@ import {
   PROMPT_COUNT,
   USE_MOCKS,
 } from './config';
+
 import type {
   AudioGenerationRequest,
   AudioGenerationResponse,
@@ -23,7 +24,20 @@ import type {
   SceneVideoGenerationResponse,
   VideoRenderRequest,
   VideoRenderResponse,
+  FullPipelineResponse,
 } from '../types';
+
+let runpodApiBaseUrl = '';
+
+export const setRunpodApiBaseUrl = (value: string) => {
+  runpodApiBaseUrl = value.trim();
+};
+
+const getRequestHeaders = (headers?: HeadersInit) => ({
+  'Content-Type': 'application/json',
+  ...(runpodApiBaseUrl ? { 'X-Runpod-Base-Url': runpodApiBaseUrl } : {}),
+  ...(headers ?? {}),
+});
 
 const HISTORY_STORY_RULES =
   'modern action cartoon style, vertical 9:16 composition, highly cinematic lighting and atmosphere, detailed environments and dramatic composition, no text, no captions, no speech bubbles, no collage, no split screens, no multiple scenes in one canvas, edge-to-edge full-frame composition, no borders, margins, or padding, safe wording, only one clear moment or scene.';
@@ -103,11 +117,8 @@ async function requestJson<TResponse>(
   init?: RequestInit,
 ): Promise<TResponse> {
   const response = await fetch(input, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...(init?.headers ?? {}),
-    },
     ...init,
+    headers: getRequestHeaders(init?.headers),
   });
 
   if (!response.ok) {

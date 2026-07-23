@@ -137,7 +137,19 @@ export interface BundleImportResponse {
   topic: string;
 }
 
+export interface FullPipelineResponse {
+  narrative: NarrativeAsset;
+  prompts: {
+    narrative?: string;
+    prompts: PromptItem[];
+  };
+  socialMetadata: SocialMetadataAsset;
+  audio: AudioGenerationResponse;
+  images: ImageGenerationResponse;
+  video: VideoRenderResponse;
+}
 export interface AppState {
+  runpodApiBaseUrl: string;
   topic: string;
   narrative: NarrativeAsset | null;
   socialMetadata: SocialMetadataAsset | null;

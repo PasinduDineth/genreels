@@ -12,28 +12,14 @@ const currentDirectory = path.dirname(fileURLToPath(import.meta.url));
 const generatedAudioDirectory = path.resolve(currentDirectory, '../../../../../generated-audio');
 
 const extensionFromContentType = (contentType: string) => {
-  if (contentType.includes('wav')) {
-    return 'wav';
-  }
-
-  if (contentType.includes('ogg')) {
-    return 'ogg';
-  }
-
-  if (contentType.includes('webm')) {
-    return 'webm';
-  }
-
+  if (contentType.includes('wav')) return 'wav';
+  if (contentType.includes('ogg')) return 'ogg';
+  if (contentType.includes('webm')) return 'webm';
   return 'mp3';
 };
 
-const sanitizeSegment = (value: string) => {
-  return value
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 48) || 'narration';
-};
+const sanitizeSegment = (value: string) =>
+  value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 48) || 'narration';
 
 export const saveNarrationAudio = async ({
   audioBuffer,
@@ -58,10 +44,7 @@ export const saveNarrationAudio = async ({
   const captionPath = path.join(generatedAudioDirectory, `${sanitizeSegment(topic)}-${hash}.captions.json`);
 
   await fs.writeFile(filePath, audioBuffer);
-  const captions = await transcribeNarrationAudio({
-    audioPath: filePath,
-    captionOutputPath: captionPath,
-  });
+  const captions = await transcribeNarrationAudio({ audioPath: filePath, captionOutputPath: captionPath });
   const audioMetadata = await parseBuffer(audioBuffer, { mimeType: contentType });
   const audioDurationInSeconds =
     typeof audioMetadata.format.duration === 'number' && Number.isFinite(audioMetadata.format.duration)
@@ -70,115 +53,73 @@ export const saveNarrationAudio = async ({
 
   return {
     audioDurationInSeconds,
-    audioUrl: `${env.publicBaseUrl.replace(/\/$/, '')}/generated-audio/${fileName}`,
+    audioUrl: `${env.runpodGatewayBaseUrl.replace(/\/$/, '')}/generated-audio/${fileName}`,
     captions,
     fileName,
   };
 };
 
-type MiniMaxSpeechResponse = {
-  data?: {
-    audio?: string;
-    status?: number;
-  };
-  base_resp?: {
-    status_code?: number;
-    status_msg?: string;
-  };
-  extra_info?: {
-    audio_length?: number;
-    audio_sample_rate?: number;
-    audio_size?: number;
-    bitrate?: number;
-  };
+type RunpodSpeechResponse = {
+  audio?: string;
+  data?: { audio?: string };
 };
 
-const requestMiniMaxSpeech = async (text: string) => {
-  if (!env.minimaxApiKey) {
-    throw new AppError('MINIMAX_API_KEY is not configured.', 500, 'MINIMAX_API_KEY_MISSING');
-  }
+const normalizeAudioBytes = (payload: RunpodSpeechResponse) => {
+  const audio = typeof payload.audio === 'string' ? payload.audio.trim() : '';
+  const nested = typeof payload.data?.audio === 'string' ? payload.data.audio.trim() : '';
+  const value = audio || nested;
+  if (!value) return null;
+  return Buffer.from(value, /^[0-9a-fA-F]+$/.test(value) ? 'hex' : 'base64');
+};
 
-  const response = await fetch(env.minimaxSpeechBaseUrl, {
+const requestRunpodSpeech = async (text: string) => {
+  const url = `${env.runpodGatewayBaseUrl.replace(/\/$/, '')}/v1/audio/speech`;
+  const response = await fetch(url, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${env.minimaxApiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      audio_setting: {
-        bitrate: env.minimaxSpeechBitrate,
-        channel: env.minimaxSpeechChannelCount,
-        format: env.minimaxSpeechAudioFormat,
-        sample_rate: env.minimaxSpeechSampleRate,
-      },
-      language_boost: 'auto',
-      model: env.minimaxSpeechModel,
-      output_format: 'hex',
-      stream: false,
-      text,
-      voice_setting: {
-        pitch: 0,
-        speed: 1,
-        voice_id: env.minimaxSpeechVoiceId,
-        vol: 1,
-      },
+      model: 'tts-1',
+      voice: env.ttsVoiceName,
+      input: text,
+      response_format: env.minimaxSpeechAudioFormat === 'wav' ? 'wav' : 'mp3',
+      speed: 1,
     }),
   });
 
   if (!response.ok) {
     const bodyText = await response.text();
     throw new AppError(
-      `MiniMax speech request failed with status ${response.status}${bodyText ? `: ${bodyText}` : ''}.`,
+      `Runpod speech request failed with status ${response.status}${bodyText ? `: ${bodyText}` : ''}.`,
       502,
-      'MINIMAX_SPEECH_CREATE_FAILED',
+      'RUNPOD_SPEECH_CREATE_FAILED',
     );
   }
 
-  const payload = (await response.json()) as MiniMaxSpeechResponse;
-  console.log('[minimax:speech] Response', payload);
-
-  const statusCode = payload.base_resp?.status_code;
-  const statusMessage = payload.base_resp?.status_msg?.trim();
-  if (typeof statusCode === 'number' && statusCode !== 0) {
-    throw new AppError(
-      `MiniMax speech request failed${statusMessage ? `: ${statusMessage}` : '.'}`,
-      502,
-      'MINIMAX_SPEECH_CREATE_FAILED',
-    );
+  const contentType = response.headers.get('content-type') ?? '';
+  if (contentType.includes('audio/')) {
+    return Buffer.from(await response.arrayBuffer());
   }
 
-  const audioHex = typeof payload.data?.audio === 'string' ? payload.data.audio.trim() : '';
-  if (!audioHex) {
-    throw new AppError(
-      `MiniMax speech request did not return audio data${statusMessage ? `: ${statusMessage}` : '.'}`,
-      502,
-      'MINIMAX_SPEECH_AUDIO_MISSING',
-    );
+  const payload = (await response.json()) as RunpodSpeechResponse;
+  const audioBuffer = normalizeAudioBytes(payload);
+  if (!audioBuffer) {
+    throw new AppError('Runpod speech request did not return audio data.', 502, 'RUNPOD_SPEECH_AUDIO_MISSING');
   }
 
-  return Buffer.from(audioHex, 'hex');
+  return audioBuffer;
 };
 
-export const generateNarrationAudio = async ({
-  text,
-  topic,
-}: {
-  text: string;
-  topic: string;
-}) => {
+export const generateNarrationAudio = async ({ text, topic }: { text: string; topic: string }) => {
   const normalizedText = text.trim();
-
   if (!normalizedText) {
     throw new AppError('Narration text is required.', 400, 'NARRATION_TEXT_REQUIRED');
   }
 
-  const audioBuffer = await requestMiniMaxSpeech(normalizedText);
+  const audioBuffer = await requestRunpodSpeech(normalizedText);
   const extension = env.minimaxSpeechAudioFormat;
   const contentType = extension === 'wav' ? 'audio/wav' : extension === 'ogg' ? 'audio/ogg' : 'audio/mpeg';
 
-  return saveNarrationAudio({
-    audioBuffer,
-    contentType,
-    topic,
-  });
+  return saveNarrationAudio({ audioBuffer, contentType, topic });
 };

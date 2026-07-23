@@ -1,22 +1,30 @@
 interface TopicComposerProps {
+  runpodApiBaseUrl: string;
   topic: string;
   onTopicChange: (value: string) => void;
   onGenerateNarrative: () => void;
   onGenerateAudio: () => void;
   onGenerateVideo: () => void;
+  onGenerateFullPipeline: () => void;
+  onRunpodApiBaseUrlChange: (value: string) => void;
   canGenerateNarrative: boolean;
   canGenerateAudio: boolean;
   canGenerateVideo: boolean;
+  canGenerateFullPipeline: boolean;
 }
 
 export function TopicComposer({
+  runpodApiBaseUrl,
   topic,
   canGenerateAudio,
   canGenerateNarrative,
   canGenerateVideo,
+  canGenerateFullPipeline,
   onGenerateAudio,
   onGenerateNarrative,
   onGenerateVideo,
+  onGenerateFullPipeline,
+  onRunpodApiBaseUrlChange,
   onTopicChange,
 }: TopicComposerProps) {
   return (
@@ -47,6 +55,16 @@ export function TopicComposer({
         />
       </label>
 
+      <label className="field field-compact">
+        <span className="field-label">Runpod API base URL</span>
+        <input
+          className="field-input"
+          placeholder="https://your-runpod-proxy.example.com"
+          value={runpodApiBaseUrl}
+          onChange={(event) => onRunpodApiBaseUrlChange(event.target.value)}
+        />
+      </label>
+
       <div className="action-row">
         <button
           className="button button-primary"
@@ -71,6 +89,14 @@ export function TopicComposer({
           type="button"
         >
           Generate video
+        </button>
+        <button
+          className="button button-primary"
+          disabled={!canGenerateFullPipeline}
+          onClick={onGenerateFullPipeline}
+          type="button"
+        >
+          Generate full pipeline
         </button>
         <p className="helper-text">
           Flow: narrative, edit, audio preview, then prompts, images, scene videos, and final render.

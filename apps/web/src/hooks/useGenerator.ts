@@ -1,10 +1,11 @@
 import {
   startTransition,
   useCallback,
+  useEffect,
   useMemo,
   useReducer,
 } from 'react';
-import {apiClient} from '../lib/api';
+import {apiClient, setRunpodApiBaseUrl as syncRunpodApiBaseUrl} from '../lib/api';
 import type {
   AppState,
   BundleImportResponse,
@@ -22,8 +23,20 @@ const createEmptyNarrative = (): NarrativeAsset => ({
   wordCount: 0,
 });
 
+const RUNPOD_STORAGE_KEY = 'genreels.runpodApiBaseUrl';
+const DEFAULT_RUNPOD_API_BASE_URL = import.meta.env.VITE_RUNPOD_API_BASE_URL?.trim() || '';
+
+const loadRunpodApiBaseUrl = () => {
+  if (typeof window === 'undefined') {
+    return DEFAULT_RUNPOD_API_BASE_URL;
+  }
+
+  return window.localStorage.getItem(RUNPOD_STORAGE_KEY)?.trim() || DEFAULT_RUNPOD_API_BASE_URL;
+};
+
 type Action =
   | {type: 'topic/set'; payload: string}
+  | {type: 'runpod/base-url-set'; payload: string}
   | {type: 'narrative/text-set'; payload: string}
   | {type: 'narrative/status'; payload: GenerationStatus}
   | {type: 'audio/status'; payload: GenerationStatus}
@@ -43,6 +56,7 @@ type Action =
   | {type: 'status/clear'};
 
 const initialState: AppState = {
+  runpodApiBaseUrl: loadRunpodApiBaseUrl(),
   topic: 'The Dyatlov Pass incident',
   narrative: createEmptyNarrative(),
   socialMetadata: null,
@@ -65,6 +79,11 @@ function reducer(state: AppState, action: Action): AppState {
       return {
         ...state,
         topic: action.payload,
+      };
+    case 'runpod/base-url-set':
+      return {
+        ...state,
+        runpodApiBaseUrl: action.payload,
       };
     case 'narrative/text-set':
       return {
@@ -197,6 +216,21 @@ const hasCompleteSceneVideoSet = (images: ImageAsset[]) =>
 export function useGenerator() {
   const [state, dispatch] = useReducer(reducer, initialState);
 
+  useEffect(() => {
+    syncRunpodApiBaseUrl(state.runpodApiBaseUrl);
+
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const value = state.runpodApiBaseUrl.trim();
+    if (value) {
+      window.localStorage.setItem(RUNPOD_STORAGE_KEY, value);
+    } else {
+      window.localStorage.removeItem(RUNPOD_STORAGE_KEY);
+    }
+  }, [state.runpodApiBaseUrl]);
+
   const pushStatus = useCallback((tone: StatusMessage['tone'], message: string) => {
     dispatch({
       type: 'status/push',
@@ -206,6 +240,10 @@ export function useGenerator() {
 
   const setTopic = useCallback((value: string) => {
     dispatch({type: 'topic/set', payload: value});
+  }, []);
+
+  const setRunpodApiBaseUrl = useCallback((value: string) => {
+    dispatch({type: 'runpod/base-url-set', payload: value});
   }, []);
 
   const setNarrativeText = useCallback((value: string) => {
@@ -265,6 +303,11 @@ export function useGenerator() {
     [isBusy, state.narrative?.text],
   );
 
+  const canGenerateFullPipeline = useMemo(
+    () => Boolean(state.topic.trim()) && isBusy,
+    [isBusy, state.topic],
+  );
+
   const generateNarrative = useCallback(async () => {
     const topic = state.topic.trim();
 
@@ -318,6 +361,78 @@ export function useGenerator() {
     }
   }, [isBusy, pushStatus, state.topic]);
 
+  const generateFullPipeline = useCallback(async () => {
+    const topic = state.topic.trim();
+
+    if (!topic || !isBusy) {
+      if (!topic) {
+        pushStatus('error', 'Add a topic before generating the full pipeline.');
+      }
+      return;
+    }
+
+    dispatch({type: 'status/clear'});
+    dispatch({type: 'audio/status', payload: 'loading'});
+    dispatch({type: 'narrative/status', payload: 'loading'});
+    dispatch({type: 'social-metadata/status', payload: 'loading'});
+    dispatch({type: 'prompts/status', payload: 'loading'});
+    dispatch({type: 'images/status', payload: 'loading'});
+    dispatch({type: 'scene-video/status', payload: 'loading'});
+    dispatch({type: 'render/status', payload: 'loading'});
+    dispatch({type: 'narrative/set', payload: createEmptyNarrative()});
+    dispatch({type: 'social-metadata/set', payload: null});
+    dispatch({type: 'prompts/set', payload: []});
+    dispatch({type: 'images/set', payload: []});
+    dispatch({type: 'video/set', payload: null});
+    pushStatus('info', 'Running the full Runpod pipeline: LLM, TTS, image generation, video generation, and render.');
+
+    try {
+      const response = await apiClient.generateFullPipeline({topic});
+
+      startTransition(() => {
+        dispatch({
+          type: 'narrative/set',
+          payload: response.narrative,
+        });
+        dispatch({
+          type: 'social-metadata/set',
+          payload: response.socialMetadata,
+        });
+        dispatch({
+          type: 'prompts/set',
+          payload: response.prompts.prompts,
+        });
+        dispatch({
+          type: 'images/set',
+          payload: response.images.images,
+        });
+        dispatch({
+          type: 'video/set',
+          payload: response.video.video,
+        });
+        dispatch({type: 'audio/status', payload: 'success'});
+        dispatch({type: 'narrative/status', payload: 'success'});
+        dispatch({type: 'social-metadata/status', payload: 'success'});
+        dispatch({type: 'prompts/status', payload: 'success'});
+        dispatch({type: 'images/status', payload: 'success'});
+        dispatch({type: 'scene-video/status', payload: 'success'});
+        dispatch({type: 'render/status', payload: 'success'});
+      });
+      pushStatus('success', 'Full Runpod pipeline completed successfully.');
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unexpected full pipeline error.';
+
+      dispatch({type: 'audio/status', payload: 'error'});
+      dispatch({type: 'narrative/status', payload: 'error'});
+      dispatch({type: 'social-metadata/status', payload: 'error'});
+      dispatch({type: 'prompts/status', payload: 'error'});
+      dispatch({type: 'images/status', payload: 'error'});
+      dispatch({type: 'scene-video/status', payload: 'error'});
+      dispatch({type: 'render/status', payload: 'error'});
+      pushStatus('error', message);
+    }
+  }, [isBusy, pushStatus, state.topic]);
   const generateSocialMetadata = useCallback(async () => {
     const topic = state.topic.trim();
     const narrativeText = state.narrative?.text.trim() ?? '';
@@ -597,14 +712,17 @@ export function useGenerator() {
       generateNarrative,
       generateSocialMetadata,
       importBundle,
+      generateFullPipeline,
       renderVideo,
       setNarrativeText,
+      setRunpodApiBaseUrl,
       setTopic,
     },
     derived: {
       canDownloadBundle: Boolean(state.narrative?.text.trim()),
       canGenerateAudio,
       canGenerateNarrative,
+      canGenerateFullPipeline,
       canGenerateSocialMetadata,
       canGenerateVideo,
     },

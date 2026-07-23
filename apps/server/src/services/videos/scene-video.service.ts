@@ -22,52 +22,23 @@ type SceneVideoRequest = {
   sceneIndex: number;
 };
 
-type MiniMaxVideoCreateResponse = {
-  data?: {
-    task_id?: string | number;
-  };
-  base_resp?: {
-    status_code?: number;
-    status_msg?: string;
-  };
-  task_id?: string | number;
+type RunpodVideoCreateResponse = {
+  job_id?: string;
+  status_url?: string;
+  url?: string;
 };
 
-type MiniMaxVideoQueryResponse = {
-  data?: {
-    file_id?: string | number;
-    status?: string;
-  };
-  base_resp?: {
-    status_code?: number;
-    status_msg?: string;
-  };
-  file_id?: string | number;
+type RunpodVideoJobResponse = {
   status?: string;
-};
-
-type MiniMaxFileRetrieveResponse = {
-  base_resp?: {
-    status_code?: number;
-    status_msg?: string;
-  };
-  file?: {
-    download_url?: string;
-    filename?: string;
-  };
+  url?: string;
+  log?: string;
 };
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const normalizeId = (value: unknown) => {
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return String(value);
-  }
-
-  if (typeof value === 'string' && value.trim().length > 0) {
-    return value.trim();
-  }
-
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  if (typeof value === 'string' && value.trim().length > 0) return value.trim();
   return null;
 };
 
@@ -77,297 +48,143 @@ const ensureGeneratedVideosDirectory = async () => {
 
 const isClearlyLocalOrPrivateHost = (hostName: string) => {
   const normalized = hostName.trim().toLowerCase();
-
-  if (
-    normalized === 'localhost' ||
-    normalized === '127.0.0.1' ||
-    normalized === '0.0.0.0' ||
-    normalized === '::1'
-  ) {
-    return true;
-  }
-
-  if (normalized.startsWith('10.') || normalized.startsWith('192.168.')) {
-    return true;
-  }
-
+  if (normalized === 'localhost' || normalized === '127.0.0.1' || normalized === '0.0.0.0' || normalized === '::1') return true;
+  if (normalized.startsWith('10.') || normalized.startsWith('192.168.')) return true;
   const secondOctetMatch = normalized.match(/^172\.(\d{1,3})\./);
   if (secondOctetMatch) {
     const secondOctet = Number(secondOctetMatch[1]);
     return secondOctet >= 16 && secondOctet <= 31;
   }
-
   return false;
 };
 
 const getFirstFrameImageUrl = (imageUrl: string) => {
   let parsed: URL;
-
   try {
     parsed = new URL(imageUrl);
   } catch {
-    throw new AppError(
-      'Scene video generation needs a valid first-frame image URL.',
-      400,
-      'SCENE_VIDEO_IMAGE_URL_INVALID',
-    );
+    throw new AppError('Scene video generation needs a valid first-frame image URL.', 400, 'SCENE_VIDEO_IMAGE_URL_INVALID');
   }
 
   if (!/^https?:$/i.test(parsed.protocol)) {
-    throw new AppError(
-      'Scene video generation requires an http or https image URL.',
-      400,
-      'SCENE_VIDEO_IMAGE_URL_INVALID',
-    );
+    throw new AppError('Scene video generation requires an http or https image URL.', 400, 'SCENE_VIDEO_IMAGE_URL_INVALID');
   }
 
   if (isClearlyLocalOrPrivateHost(parsed.hostname)) {
-    throw new AppError(
-      'MiniMax must fetch the first-frame image from a publicly reachable URL. Set PUBLIC_BASE_URL to a public host or tunnel before generating scene video.',
-      400,
-      'SCENE_VIDEO_IMAGE_NOT_PUBLIC',
-    );
+    throw new AppError('Runpod must fetch the first-frame image from a publicly reachable URL. use the Runpod gateway base URL so the image can be reached publicly before generating scene video.', 400, 'SCENE_VIDEO_IMAGE_NOT_PUBLIC');
   }
 
   return parsed.toString();
 };
 
-const createMiniMaxVideoTask = async ({
-  firstFrameImage,
-  prompt,
-}: {
-  firstFrameImage: string;
-  prompt: string;
-}) => {
-  const response = await fetch(env.minimaxVideoBaseUrl, {
+const createRunpodVideoTask = async ({ firstFrameImage, prompt }: { firstFrameImage: string; prompt: string; }) => {
+  const form = new FormData();
+  const imageResponse = await fetch(firstFrameImage);
+  if (!imageResponse.ok) {
+    throw new AppError('Failed to fetch first-frame image for video generation.', 502, 'RUNPOD_VIDEO_IMAGE_FETCH_FAILED');
+  }
+
+  const imageBytes = await imageResponse.arrayBuffer();
+  form.set('image', new Blob([imageBytes], { type: imageResponse.headers.get('content-type') || 'image/png' }), 'input.png');
+  form.set('prompt', prompt);
+  form.set('width', '480');
+  form.set('height', '832');
+  form.set('num_frames', '121');
+  form.set('fps', '24');
+  form.set('steps', '12');
+  form.set('guidance_scale', '1.0');
+
+  const response = await fetch(`${env.runpodGatewayBaseUrl.replace(/\/$/, '')}/v1/videos/generations`, {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${env.minimaxApiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      aigc_watermark: false,
-      duration: env.minimaxVideoDurationSeconds,
-      first_frame_image: firstFrameImage,
-      model: env.minimaxVideoModel,
-      prompt,
-      resolution: env.minimaxVideoResolution,
-    }),
+    body: form,
   });
 
+  if (!response.ok && response.status !== 202) {
+    const bodyText = await response.text();
+    throw new AppError(
+      `Runpod video request failed with status ${response.status}${bodyText ? `: ${bodyText}` : ''}.`,
+      502,
+      'RUNPOD_VIDEO_CREATE_FAILED',
+    );
+  }
+
+  const payload = (await response.json()) as RunpodVideoCreateResponse;
+  const jobId = normalizeId(payload.job_id);
+  if (!jobId) {
+    throw new AppError('Runpod video request did not return a job id.', 502, 'RUNPOD_VIDEO_JOB_MISSING');
+  }
+
+  return jobId;
+};
+
+const queryRunpodVideoTask = async (jobId: string) => {
+  const response = await fetch(`${env.runpodGatewayBaseUrl.replace(/\/$/, '')}/v1/videos/jobs/${encodeURIComponent(jobId)}`);
   if (!response.ok) {
     const bodyText = await response.text();
     throw new AppError(
-      `MiniMax image-to-video request failed with status ${response.status}${bodyText ? `: ${bodyText}` : ''}.`,
+      `Runpod video status query failed with status ${response.status}${bodyText ? `: ${bodyText}` : ''}.`,
       502,
-      'MINIMAX_VIDEO_CREATE_FAILED',
+      'RUNPOD_VIDEO_QUERY_FAILED',
     );
   }
-
-  const payload = (await response.json()) as MiniMaxVideoCreateResponse;
-  console.log('[minimax:video] Create response', payload);
-
-  const statusCode = payload.base_resp?.status_code;
-  const statusMessage = payload.base_resp?.status_msg?.trim();
-  if (typeof statusCode === 'number' && statusCode !== 0) {
-    throw new AppError(
-      `MiniMax image-to-video request failed${statusMessage ? `: ${statusMessage}` : '.'}`,
-      502,
-      'MINIMAX_VIDEO_CREATE_FAILED',
-    );
-  }
-
-  const taskId = normalizeId(payload.task_id ?? payload.data?.task_id);
-  if (!taskId) {
-    throw new AppError(
-      `MiniMax image-to-video request did not return a task id${statusMessage ? `: ${statusMessage}` : '.'}`,
-      502,
-      'MINIMAX_VIDEO_TASK_MISSING',
-    );
-  }
-
-  return taskId;
+  return (await response.json()) as RunpodVideoJobResponse;
 };
 
-const queryMiniMaxVideoTask = async (taskId: string) => {
-  const url = new URL(env.minimaxVideoQueryUrl);
-  url.searchParams.set('task_id', taskId);
-
-  const response = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${env.minimaxApiKey}`,
-    },
-    method: 'GET',
-  });
-
-  if (!response.ok) {
-    const bodyText = await response.text();
-    throw new AppError(
-      `MiniMax video status query failed with status ${response.status}${bodyText ? `: ${bodyText}` : ''}.`,
-      502,
-      'MINIMAX_VIDEO_QUERY_FAILED',
-    );
-  }
-
-  const payload = (await response.json()) as MiniMaxVideoQueryResponse;
-  console.log('[minimax:video] Query response', payload);
-  return payload;
-};
-
-const waitForMiniMaxVideo = async (taskId: string) => {
+const waitForRunpodVideo = async (jobId: string) => {
   for (let attempt = 0; attempt < env.minimaxVideoPollMaxAttempts; attempt += 1) {
-    const payload = await queryMiniMaxVideoTask(taskId);
-    const status = (payload.status ?? payload.data?.status ?? '').trim();
-    const statusCode = payload.base_resp?.status_code;
-    const statusMessage = payload.base_resp?.status_msg?.trim();
-
-    if (typeof statusCode === 'number' && statusCode !== 0) {
-      throw new AppError(
-        `MiniMax video status query failed${statusMessage ? `: ${statusMessage}` : '.'}`,
-        502,
-        'MINIMAX_VIDEO_QUERY_FAILED',
-      );
-    }
-
-    if (status === 'Success') {
-      const fileId = normalizeId(payload.file_id ?? payload.data?.file_id);
-      if (!fileId) {
-        throw new AppError(
-          'MiniMax video completed without a file id.',
-          502,
-          'MINIMAX_VIDEO_FILE_ID_MISSING',
-        );
+    const payload = await queryRunpodVideoTask(jobId);
+    const status = (payload.status ?? '').trim().toLowerCase();
+    if (status === 'completed' || status === 'success') {
+      if (!payload.url) {
+        throw new AppError('Runpod video completed without a download URL.', 502, 'RUNPOD_VIDEO_URL_MISSING');
       }
-
-      return fileId;
+      return payload.url;
     }
-
-    if (status === 'Fail') {
-      throw new AppError('MiniMax video generation failed.', 502, 'MINIMAX_VIDEO_FAILED');
+    if (status === 'failed' || status === 'fail' || status === 'error') {
+      throw new AppError('Runpod video generation failed.', 502, 'RUNPOD_VIDEO_FAILED');
     }
-
     await sleep(env.minimaxVideoPollIntervalMs);
   }
 
-  throw new AppError(
-    'MiniMax video generation timed out while waiting for the preview clip.',
-    504,
-    'MINIMAX_VIDEO_TIMEOUT',
-  );
+  throw new AppError('Runpod video generation timed out while waiting for the preview clip.', 504, 'RUNPOD_VIDEO_TIMEOUT');
 };
 
-const retrieveMiniMaxFile = async (fileId: string) => {
-  const url = new URL(env.minimaxFileRetrieveUrl);
-  url.searchParams.set('file_id', fileId);
-
-  const response = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${env.minimaxApiKey}`,
-    },
-    method: 'GET',
-  });
-
-  if (!response.ok) {
-    const bodyText = await response.text();
-    throw new AppError(
-      `MiniMax file retrieval failed with status ${response.status}${bodyText ? `: ${bodyText}` : ''}.`,
-      502,
-      'MINIMAX_VIDEO_FILE_RETRIEVE_FAILED',
-    );
-  }
-
-  const payload = (await response.json()) as MiniMaxFileRetrieveResponse;
-  const downloadUrl = payload.file?.download_url;
-
-  if (!downloadUrl) {
-    throw new AppError(
-      'MiniMax file retrieval did not return a download URL.',
-      502,
-      'MINIMAX_VIDEO_DOWNLOAD_URL_MISSING',
-    );
-  }
-
-  return {
-    downloadUrl,
-    filename: payload.file?.filename ?? 'scene-video.mp4',
-  };
-};
-
-const downloadSceneVideo = async ({
-  downloadUrl,
-  imageId,
-  sceneIndex,
-  sourcePrompt,
-}: {
-  downloadUrl: string;
-  imageId: string;
-  sceneIndex: number;
-  sourcePrompt: string;
-}) => {
+const downloadSceneVideo = async ({ downloadUrl, imageId, sceneIndex, sourcePrompt }: { downloadUrl: string; imageId: string; sceneIndex: number; sourcePrompt: string; }) => {
   const response = await fetch(downloadUrl);
   if (!response.ok) {
     const bodyText = await response.text();
     throw new AppError(
-      `MiniMax video download failed with status ${response.status}${bodyText ? `: ${bodyText}` : ''}.`,
+      `Runpod video download failed with status ${response.status}${bodyText ? `: ${bodyText}` : ''}.`,
       502,
-      'MINIMAX_VIDEO_DOWNLOAD_FAILED',
+      'RUNPOD_VIDEO_DOWNLOAD_FAILED',
     );
   }
 
   const arrayBuffer = await response.arrayBuffer();
-  const hash = crypto
-    .createHash('sha1')
-    .update(`${imageId}-${sceneIndex}-${sourcePrompt}`)
-    .digest('hex')
-    .slice(0, 16);
+  const hash = crypto.createHash('sha1').update(`${imageId}-${sceneIndex}-${sourcePrompt}`).digest('hex').slice(0, 16);
   const fileName = `scene-${sceneIndex + 1}-${hash}.mp4`;
   const filePath = path.join(generatedVideosDirectory, fileName);
 
   await fs.writeFile(filePath, Buffer.from(arrayBuffer));
-
-  return `${env.publicBaseUrl.replace(/\/$/, '')}/generated-videos/${fileName}`;
+  return `${env.runpodGatewayBaseUrl.replace(/\/$/, '')}/generated-videos/${fileName}`;
 };
 
 export const generateSceneVideoPreview = async ({ image, sceneIndex }: SceneVideoRequest) => {
-  if (!env.minimaxApiKey) {
-    throw new AppError('MINIMAX_API_KEY is not configured.', 500, 'MINIMAX_API_KEY_MISSING');
-  }
-
-  if (!env.minimaxVideoEnabled) {
-    throw new AppError('MiniMax scene video generation is disabled.', 400, 'MINIMAX_VIDEO_DISABLED');
-  }
-
   const imageId = typeof image.id === 'string' && image.id.trim().length > 0 ? image.id : `img_${sceneIndex + 1}`;
-  const sourceImageUrl =
-    typeof image.sourceImageUrl === 'string' && image.sourceImageUrl.trim().length > 0
-      ? image.sourceImageUrl.trim()
-      : '';
+  const sourceImageUrl = typeof image.sourceImageUrl === 'string' && image.sourceImageUrl.trim().length > 0 ? image.sourceImageUrl.trim() : '';
   const imageUrl = typeof image.url === 'string' ? image.url.trim() : '';
   const videoPromptText = typeof image.videoPromptText === 'string' ? image.videoPromptText.trim() : '';
   const promptText = typeof image.promptText === 'string' ? image.promptText.trim() : '';
 
   if ((!sourceImageUrl && !imageUrl) || !videoPromptText) {
-    throw new AppError(
-      'Scene video generation requires both an image URL and an image-to-video prompt.',
-      400,
-      'SCENE_VIDEO_INPUT_INVALID',
-    );
+    throw new AppError('Scene video generation requires both an image URL and an image-to-video prompt.', 400, 'SCENE_VIDEO_INPUT_INVALID');
   }
 
   await ensureGeneratedVideosDirectory();
   const firstFrameImage = getFirstFrameImageUrl(sourceImageUrl || imageUrl);
-  const taskId = await createMiniMaxVideoTask({
-    firstFrameImage,
-    prompt: buildImageToVideoPrompt(videoPromptText),
-  });
-  const fileId = await waitForMiniMaxVideo(taskId);
-  const { downloadUrl } = await retrieveMiniMaxFile(fileId);
-  const videoUrl = await downloadSceneVideo({
-    downloadUrl,
-    imageId,
-    sceneIndex,
-    sourcePrompt: videoPromptText,
-  });
+  const jobId = await createRunpodVideoTask({ firstFrameImage, prompt: buildImageToVideoPrompt(videoPromptText) });
+  const downloadUrl = await waitForRunpodVideo(jobId);
+  const videoUrl = await downloadSceneVideo({ downloadUrl, imageId, sceneIndex, sourcePrompt: videoPromptText });
 
   return {
     image: {

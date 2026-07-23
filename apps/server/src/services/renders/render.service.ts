@@ -79,7 +79,7 @@ const normalizeTopic = (value: string) => value.trim() || 'Untitled mystery';
 
 const toManagedAudioFilePath = (audioUrl: string) => {
   const parsed = new URL(audioUrl);
-  const publicBaseUrl = env.publicBaseUrl.replace(/\/$/, '');
+  const publicBaseUrl = env.runpodGatewayBaseUrl.replace(/\/$/, '');
 
   if (parsed.origin !== publicBaseUrl || !parsed.pathname.startsWith('/generated-audio/')) {
     return null;
@@ -204,7 +204,7 @@ const pickBackgroundMusicUrl = async () => {
   }
 
   const selected = candidates[Math.floor(Math.random() * candidates.length)];
-  return `${env.publicBaseUrl.replace(/\/$/, '')}/background-music/${encodeURIComponent(selected)}`;
+  return `${env.runpodGatewayBaseUrl.replace(/\/$/, '')}/background-music/${encodeURIComponent(selected)}`;
 };
 
 const getBundleLocation = () => {
@@ -284,7 +284,7 @@ export const kickoffRender = async ({
       serveUrl: bundleLocation,
     });
 
-    const outputUrl = `${env.publicBaseUrl.replace(/\/$/, '')}/rendered/${filename}`;
+    const outputUrl = `${env.runpodGatewayBaseUrl.replace(/\/$/, '')}/rendered/${filename}`;
     const result = {
       createdAt: new Date().toISOString(),
       imageCount: normalizedImages.length,

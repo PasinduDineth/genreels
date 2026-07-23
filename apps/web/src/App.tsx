@@ -19,11 +19,15 @@ export default function App() {
         <TopicComposer
           canGenerateAudio={derived.canGenerateAudio}
           canGenerateNarrative={derived.canGenerateNarrative}
+          canGenerateFullPipeline={derived.canGenerateFullPipeline}
           canGenerateVideo={derived.canGenerateVideo}
           onGenerateAudio={actions.generateAudio}
           onGenerateNarrative={actions.generateNarrative}
+          onGenerateFullPipeline={actions.generateFullPipeline}
           onGenerateVideo={actions.renderVideo}
+          onRunpodApiBaseUrlChange={actions.setRunpodApiBaseUrl}
           onTopicChange={actions.setTopic}
+          runpodApiBaseUrl={state.runpodApiBaseUrl}
           topic={state.topic}
         />
 

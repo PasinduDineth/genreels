@@ -82,7 +82,7 @@ const sanitizeSegment = (value: string) => {
 };
 
 const toPublicUrl = (kind: 'audio' | 'image' | 'video', fileName: string) => {
-  const baseUrl = env.publicBaseUrl.replace(/\/$/, '');
+  const baseUrl = env.runpodGatewayBaseUrl.replace(/\/$/, '');
   const route =
     kind === 'audio'
       ? 'generated-audio'
@@ -101,7 +101,7 @@ const ensureLocalManagedUrl = (assetUrl: string, kind: 'audio' | 'image' | 'vide
         ? '/generated-images/'
         : '/generated-videos/';
 
-  if (parsed.origin !== env.publicBaseUrl.replace(/\/$/, '') || !parsed.pathname.startsWith(expectedPathPrefix)) {
+  if (parsed.origin !== env.runpodGatewayBaseUrl.replace(/\/$/, '') || !parsed.pathname.startsWith(expectedPathPrefix)) {
     throw new AppError(
       `Only locally managed ${kind} assets can be bundled.`,
       400,

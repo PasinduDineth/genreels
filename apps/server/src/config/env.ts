@@ -38,6 +38,7 @@ export const env = {
   minimaxSpeechModel: process.env.MINIMAX_SPEECH_MODEL ?? 'speech-02-turbo',
   minimaxSpeechVoiceId: process.env.MINIMAX_SPEECH_VOICE_ID ?? 'English_Resonant_Man',
   minimaxSpeechAudioFormat: process.env.MINIMAX_SPEECH_AUDIO_FORMAT ?? 'mp3',
+  ttsVoiceName: process.env.RUNPOD_TTS_VOICE_NAME ?? 'Ryan',
   minimaxSpeechBitrate: toNumber(process.env.MINIMAX_SPEECH_BITRATE, 128000),
   minimaxSpeechChannelCount: toNumber(process.env.MINIMAX_SPEECH_CHANNEL_COUNT, 1),
   minimaxSpeechSampleRate: toNumber(process.env.MINIMAX_SPEECH_SAMPLE_RATE, 32000),
@@ -55,13 +56,13 @@ export const env = {
     process.env.MINIMAX_VIDEO_QUERY_URL ?? 'https://api.minimax.io/v1/query/video_generation',
   minimaxVideoResolution: process.env.MINIMAX_VIDEO_RESOLUTION ?? '512P',
   minimaxVideoDurationSeconds: toNumber(process.env.MINIMAX_VIDEO_DURATION_SECONDS, 6),
+  runpodGatewayBaseUrl: process.env.RUNPOD_GATEWAY_BASE_URL ?? 'http://127.0.0.1:8000',
   openRouterApiKey: process.env.OPENROUTER_API_KEY?.trim() || null,
   openRouterBaseUrl: process.env.OPENROUTER_BASE_URL ?? 'https://openrouter.ai/api/v1',
   openRouterNarrativeModel:
     process.env.OPENROUTER_NARRATIVE_MODEL ?? 'google/gemma-4-26b-a4b-it:free',
   openRouterPromptModel:
     process.env.OPENROUTER_PROMPT_MODEL ?? 'google/gemma-4-26b-a4b-it:free',
-  publicBaseUrl: process.env.PUBLIC_BASE_URL ?? 'http://localhost:4000',
   port: toNumber(process.env.PORT, 4000),
 } as const;
 
@@ -78,6 +79,7 @@ console.log('[env] Loaded server environment', {
   minimaxSpeechModel: env.minimaxSpeechModel,
   minimaxSpeechVoiceId: env.minimaxSpeechVoiceId,
   minimaxSpeechAudioFormat: env.minimaxSpeechAudioFormat,
+  ttsVoiceName: env.ttsVoiceName,
   minimaxSpeechBitrate: env.minimaxSpeechBitrate,
   minimaxSpeechChannelCount: env.minimaxSpeechChannelCount,
   minimaxSpeechSampleRate: env.minimaxSpeechSampleRate,
@@ -88,4 +90,5 @@ console.log('[env] Loaded server environment', {
   minimaxVideoResolution: env.minimaxVideoResolution,
   minimaxVideoDurationSeconds: env.minimaxVideoDurationSeconds,
   minimaxVideoEnabled: env.minimaxVideoEnabled,
+  runpodGatewayBaseUrl: env.runpodGatewayBaseUrl,
 });
