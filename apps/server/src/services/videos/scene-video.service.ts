@@ -3,6 +3,8 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { env } from '../../config/env.js';
+import { getRunpodGatewayBaseUrl } from '../../config/runpod-gateway.js';
+import { getMediaPublicUrl } from '../../config/media-url.js';
 import { AppError } from '../../lib/app-error.js';
 import { buildImageToVideoPrompt } from '../prompts/prompt-constraints.js';
 
@@ -30,8 +32,11 @@ type RunpodVideoCreateResponse = {
 
 type RunpodVideoJobResponse = {
   status?: string;
+  stage?: string;
   url?: string;
   log?: string;
+  error?: string;
+  error_tail?: string;
 };
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -41,6 +46,9 @@ const normalizeId = (value: unknown) => {
   if (typeof value === 'string' && value.trim().length > 0) return value.trim();
   return null;
 };
+
+export const resolveRunpodVideoUrl = (value: string) =>
+  new URL(value, `${getRunpodGatewayBaseUrl()}/`).toString();
 
 const ensureGeneratedVideosDirectory = async () => {
   await fs.mkdir(generatedVideosDirectory, { recursive: true });
@@ -91,10 +99,10 @@ const createRunpodVideoTask = async ({ firstFrameImage, prompt }: { firstFrameIm
   form.set('height', '832');
   form.set('num_frames', '121');
   form.set('fps', '24');
-  form.set('steps', '12');
+  form.set('steps', '4');
   form.set('guidance_scale', '1.0');
 
-  const response = await fetch(`${env.runpodGatewayBaseUrl.replace(/\/$/, '')}/v1/videos/generations`, {
+  const response = await fetch(`${getRunpodGatewayBaseUrl()}/v1/videos/generations`, {
     method: 'POST',
     body: form,
   });
@@ -118,7 +126,7 @@ const createRunpodVideoTask = async ({ firstFrameImage, prompt }: { firstFrameIm
 };
 
 const queryRunpodVideoTask = async (jobId: string) => {
-  const response = await fetch(`${env.runpodGatewayBaseUrl.replace(/\/$/, '')}/v1/videos/jobs/${encodeURIComponent(jobId)}`);
+  const response = await fetch(`${getRunpodGatewayBaseUrl()}/v1/videos/jobs/${encodeURIComponent(jobId)}`);
   if (!response.ok) {
     const bodyText = await response.text();
     throw new AppError(
@@ -131,19 +139,24 @@ const queryRunpodVideoTask = async (jobId: string) => {
 };
 
 const waitForRunpodVideo = async (jobId: string) => {
-  for (let attempt = 0; attempt < env.minimaxVideoPollMaxAttempts; attempt += 1) {
+  for (let attempt = 0; attempt < env.runpodVideoPollMaxAttempts; attempt += 1) {
     const payload = await queryRunpodVideoTask(jobId);
     const status = (payload.status ?? '').trim().toLowerCase();
     if (status === 'completed' || status === 'success') {
       if (!payload.url) {
         throw new AppError('Runpod video completed without a download URL.', 502, 'RUNPOD_VIDEO_URL_MISSING');
       }
-      return payload.url;
+      return resolveRunpodVideoUrl(payload.url);
     }
     if (status === 'failed' || status === 'fail' || status === 'error') {
-      throw new AppError('Runpod video generation failed.', 502, 'RUNPOD_VIDEO_FAILED');
+      const detail = payload.error?.trim() || payload.error_tail?.trim() || payload.log?.trim();
+      throw new AppError(
+        `RunPod video generation failed${detail ? `: ${detail}` : '.'}`,
+        502,
+        'RUNPOD_VIDEO_FAILED',
+      );
     }
-    await sleep(env.minimaxVideoPollIntervalMs);
+    await sleep(env.runpodVideoPollIntervalMs);
   }
 
   throw new AppError('Runpod video generation timed out while waiting for the preview clip.', 504, 'RUNPOD_VIDEO_TIMEOUT');
@@ -166,7 +179,7 @@ const downloadSceneVideo = async ({ downloadUrl, imageId, sceneIndex, sourceProm
   const filePath = path.join(generatedVideosDirectory, fileName);
 
   await fs.writeFile(filePath, Buffer.from(arrayBuffer));
-  return `${env.runpodGatewayBaseUrl.replace(/\/$/, '')}/generated-videos/${fileName}`;
+  return getMediaPublicUrl(`generated-videos/${fileName}`);
 };
 
 export const generateSceneVideoPreview = async ({ image, sceneIndex }: SceneVideoRequest) => {
@@ -193,7 +206,7 @@ export const generateSceneVideoPreview = async ({ image, sceneIndex }: SceneVide
       promptText,
       sourceImageUrl: sourceImageUrl || imageUrl,
       url: imageUrl,
-      videoDurationInSeconds: env.minimaxVideoDurationSeconds,
+      videoDurationInSeconds: env.runpodVideoDurationSeconds,
       videoPromptText,
       videoUrl,
     },

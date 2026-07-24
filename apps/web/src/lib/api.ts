@@ -130,6 +130,13 @@ async function requestJson<TResponse>(
 }
 
 export const apiClient = {
+  async generateFullPipeline(payload: {topic: string}): Promise<FullPipelineResponse> {
+    return requestJson<FullPipelineResponse>(`${API_BASE_URL}/workflow/full`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
   async generateNarrative(
     payload: NarrativeGenerationRequest,
   ): Promise<NarrativeGenerationResponse> {

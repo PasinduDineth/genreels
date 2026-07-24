@@ -4,7 +4,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { parseFile } from 'music-metadata';
 import { AppError } from '../../lib/app-error.js';
-import { env } from '../../config/env.js';
+import { getMediaPublicBaseUrl, getMediaPublicUrl } from '../../config/media-url.js';
 import {
   backgroundMusicDirectory,
   ensureMediaDirectories,
@@ -79,9 +79,9 @@ const normalizeTopic = (value: string) => value.trim() || 'Untitled mystery';
 
 const toManagedAudioFilePath = (audioUrl: string) => {
   const parsed = new URL(audioUrl);
-  const publicBaseUrl = env.runpodGatewayBaseUrl.replace(/\/$/, '');
+  const publicBaseUrl = getMediaPublicBaseUrl();
 
-  if (parsed.origin !== publicBaseUrl || !parsed.pathname.startsWith('/generated-audio/')) {
+  if (parsed.origin !== new URL(publicBaseUrl).origin || !parsed.pathname.startsWith('/generated-audio/')) {
     return null;
   }
 
@@ -204,7 +204,7 @@ const pickBackgroundMusicUrl = async () => {
   }
 
   const selected = candidates[Math.floor(Math.random() * candidates.length)];
-  return `${env.runpodGatewayBaseUrl.replace(/\/$/, '')}/background-music/${encodeURIComponent(selected)}`;
+  return getMediaPublicUrl(`background-music/${encodeURIComponent(selected)}`);
 };
 
 const getBundleLocation = () => {
@@ -284,7 +284,7 @@ export const kickoffRender = async ({
       serveUrl: bundleLocation,
     });
 
-    const outputUrl = `${env.runpodGatewayBaseUrl.replace(/\/$/, '')}/rendered/${filename}`;
+    const outputUrl = getMediaPublicUrl(`rendered/${filename}`);
     const result = {
       createdAt: new Date().toISOString(),
       imageCount: normalizedImages.length,

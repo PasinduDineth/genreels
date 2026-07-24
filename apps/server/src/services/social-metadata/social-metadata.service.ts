@@ -1,5 +1,5 @@
 import { AppError } from '../../lib/app-error.js';
-import { pollinationsClient } from '../pollinations/pollinations.client.js';
+import { runpodLlmClient } from '../runpod/runpod-llm.client.js';
 
 const MIN_TITLE_LENGTH = 40;
 const MAX_TITLE_LENGTH = 60;
@@ -29,7 +29,7 @@ const extractJsonObject = (value: string) => {
   const end = value.lastIndexOf('}');
 
   if (start === -1 || end === -1 || end <= start) {
-    throw new AppError('MiniMax did not return a valid metadata JSON object.', 502, 'SOCIAL_METADATA_JSON_INVALID');
+    throw new AppError('RunPod LLM did not return a valid metadata JSON object.', 502, 'SOCIAL_METADATA_JSON_INVALID');
   }
 
   return value.slice(start, end + 1);
@@ -121,7 +121,7 @@ export const generateSocialMetadata = async ({
   let lastValidationError: AppError | null = null;
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
-    const rawResponse = await pollinationsClient.generateSocialMetadataText({
+    const rawResponse = await runpodLlmClient.generateSocialMetadataText({
       feedback,
       narrative: normalizedNarrative,
       topic: normalizedTopic,
@@ -139,7 +139,7 @@ export const generateSocialMetadata = async ({
       if (!(error instanceof AppError)) {
         if (error instanceof SyntaxError) {
           lastValidationError = new AppError(
-            'MiniMax returned malformed metadata JSON.',
+            'RunPod LLM returned malformed metadata JSON.',
             502,
             'SOCIAL_METADATA_JSON_INVALID',
           );

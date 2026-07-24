@@ -2,7 +2,8 @@ import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { env } from '../../config/env.js';
+import { getRunpodGatewayBaseUrl } from '../../config/runpod-gateway.js';
+import { getMediaPublicUrl } from '../../config/media-url.js';
 import { AppError } from '../../lib/app-error.js';
 import { buildTextToImagePrompt, normalizePromptScene } from '../prompts/prompt-constraints.js';
 
@@ -33,19 +34,19 @@ const extensionFromRemoteUrl = (imageUrl: string) => {
 
 const resolveRemoteUrl = (value: string) => {
   if (/^https?:/i.test(value)) return value;
-  return new URL(value, env.runpodGatewayBaseUrl).toString();
+  return new URL(value, getRunpodGatewayBaseUrl()).toString();
 };
 
 const generateRunpodImage = async (prompt: string, index: number) => {
-  const response = await fetch(`${env.runpodGatewayBaseUrl.replace(/\/$/, '')}/v1/images/generations`, {
+  const response = await fetch(`${getRunpodGatewayBaseUrl()}/v1/images/generations`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
       prompt,
-      width: 1024,
-      height: 1920,
+      width: 864,
+      height: 1536,
       steps: 30,
       guidance_scale: 7,
       seed: index + 1,
@@ -86,7 +87,7 @@ const generateRunpodImage = async (prompt: string, index: number) => {
 
   return {
     sourceImageUrl,
-    url: `${env.runpodGatewayBaseUrl.replace(/\/$/, '')}/generated-images/${fileName}`,
+    url: getMediaPublicUrl(`generated-images/${fileName}`),
   };
 };
 

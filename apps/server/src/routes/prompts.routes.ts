@@ -2,6 +2,7 @@ import { Router } from 'express';
 
 import { asyncHandler } from '../lib/async-handler.js';
 import { generatePromptPack } from '../services/prompts/prompt-generation.service.js';
+import { switchRunpodMode } from '../services/runpod/runpod-mode.service.js';
 
 export const createPromptRouter = () => {
   const router = Router();
@@ -10,6 +11,7 @@ export const createPromptRouter = () => {
     const narrative = typeof request.body?.narrative === 'string' ? request.body.narrative : '';
     const topic = typeof request.body?.topic === 'string' ? request.body.topic : '';
 
+    await switchRunpodMode('llm');
     const result = await generatePromptPack({ narrative, topic });
 
     response.json({

@@ -4,6 +4,7 @@ import express from 'express';
 import { AppError } from './lib/app-error.js';
 import { createApiRouter } from './routes/index.js';
 import { env } from './config/env.js';
+import { runpodGatewayContext } from './config/runpod-gateway.js';
 import {
   backgroundMusicDirectory,
   ensureMediaDirectories,
@@ -25,6 +26,7 @@ app.use(
   }),
 );
 app.use(express.json({ limit: '2mb' }));
+app.use(runpodGatewayContext);
 app.use('/rendered', express.static(renderedDirectory));
 app.use('/generated-images', express.static(generatedImagesDirectory));
 app.use('/generated-audio', express.static(generatedAudioDirectory));

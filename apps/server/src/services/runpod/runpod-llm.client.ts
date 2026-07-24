@@ -1,4 +1,5 @@
 import { env } from '../../config/env.js';
+import { getRunpodGatewayBaseUrl } from '../../config/runpod-gateway.js';
 import { AppError } from '../../lib/app-error.js';
 
 type PromptGenerationRequest = {
@@ -135,13 +136,13 @@ const normalizeOllamaResponse = (data: { response?: string; message?: { content?
 };
 
 const requestTextViaRunpodLlm = async (systemPrompt: string, userPrompt: string) => {
-  const response = await fetch(`${env.runpodGatewayBaseUrl.replace(/\/$/, '')}/ollama/api/generate`, {
+  const response = await fetch(`${getRunpodGatewayBaseUrl()}/ollama/api/generate`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'qwen3:32b',
+      model: env.runpodLlmModel,
       prompt: `${systemPrompt}\n\n${userPrompt}`,
       stream: false,
       think: false,
@@ -166,7 +167,7 @@ const requestTextViaRunpodLlm = async (systemPrompt: string, userPrompt: string)
   return content;
 };
 
-export const pollinationsClient = {
+export const runpodLlmClient = {
   async generateNarrativeText({ topic, feedback }: NarrativeGenerationRequest): Promise<string> {
     const userPrompt = feedback ? `Topic: ${topic}\nRevision notes: ${feedback}` : `Topic: ${topic}`;
     return requestTextViaRunpodLlm(createNarrativeSystemMessage(), userPrompt);

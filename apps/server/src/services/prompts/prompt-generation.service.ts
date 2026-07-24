@@ -1,5 +1,5 @@
 import { AppError } from '../../lib/app-error.js';
-import { pollinationsClient } from '../pollinations/pollinations.client.js';
+import { runpodLlmClient } from '../runpod/runpod-llm.client.js';
 import {
   normalizePromptScene,
   normalizeVideoPrompt,
@@ -65,9 +65,23 @@ const enforcePromptCount = (topic: string, promptPairs: PromptPair[]) => {
   return results.slice(0, TARGET_PROMPT_COUNT);
 };
 
+const extractJsonArray = (rawText: string) => {
+  const withoutFences = rawText
+    .trim()
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/\s*```$/i, '')
+    .trim();
+  const arrayStart = withoutFences.indexOf('[');
+  const arrayEnd = withoutFences.lastIndexOf(']');
+
+  return arrayStart >= 0 && arrayEnd > arrayStart
+    ? withoutFences.slice(arrayStart, arrayEnd + 1)
+    : withoutFences;
+};
+
 const parsePromptPairCandidates = (rawText: string): PromptPair[] => {
   try {
-    const parsed = JSON.parse(rawText) as unknown;
+    const parsed = JSON.parse(extractJsonArray(rawText)) as unknown;
     if (Array.isArray(parsed)) {
       return parsed
         .filter((value): value is { imagePrompt?: unknown; videoPrompt?: unknown } =>
@@ -113,7 +127,7 @@ type GeneratePromptPackInput = {
 export const generatePromptPack = async ({ narrative, topic }: GeneratePromptPackInput) => {
   const normalizedTopic = ensureTopic(topic);
   const normalizedNarrative = narrative.trim();
-  const rawText = await pollinationsClient.generatePromptText({
+  const rawText = await runpodLlmClient.generatePromptText({
     narrative: normalizedNarrative,
     topic: normalizedTopic,
   });

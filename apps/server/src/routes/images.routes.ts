@@ -2,6 +2,7 @@ import { Router } from 'express';
 
 import { asyncHandler } from '../lib/async-handler.js';
 import { generateImagesFromPrompts } from '../services/images/image-generation.service.js';
+import { switchRunpodMode } from '../services/runpod/runpod-mode.service.js';
 
 export const createImagesRouter = () => {
   const router = Router();
@@ -20,6 +21,7 @@ export const createImagesRouter = () => {
         })
       : [];
 
+    await switchRunpodMode('image');
     const result = await generateImagesFromPrompts(prompts);
 
     response.json(result);

@@ -3,6 +3,7 @@ import express, { Router } from 'express';
 import { asyncHandler } from '../lib/async-handler.js';
 import { AppError } from '../lib/app-error.js';
 import { generateNarrationAudio, saveNarrationAudio } from '../services/audio/audio.service.js';
+import { switchRunpodMode } from '../services/runpod/runpod-mode.service.js';
 
 export const createAudioRouter = () => {
   const router = Router();
@@ -13,6 +14,7 @@ export const createAudioRouter = () => {
       const text = typeof request.body?.text === 'string' ? request.body.text : '';
       const topic = typeof request.body?.topic === 'string' ? request.body.topic : 'narration';
 
+      await switchRunpodMode('tts');
       const result = await generateNarrationAudio({
         text,
         topic,

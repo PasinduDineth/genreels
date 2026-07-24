@@ -5,6 +5,8 @@ import { fileURLToPath } from 'node:url';
 import type { Caption } from '@remotion/captions';
 import { parseBuffer } from 'music-metadata';
 import { env } from '../../config/env.js';
+import { getRunpodGatewayBaseUrl } from '../../config/runpod-gateway.js';
+import { getMediaPublicUrl } from '../../config/media-url.js';
 import { AppError } from '../../lib/app-error.js';
 import { transcribeNarrationAudio } from './whisper.service.js';
 
@@ -53,7 +55,7 @@ export const saveNarrationAudio = async ({
 
   return {
     audioDurationInSeconds,
-    audioUrl: `${env.runpodGatewayBaseUrl.replace(/\/$/, '')}/generated-audio/${fileName}`,
+    audioUrl: getMediaPublicUrl(`generated-audio/${fileName}`),
     captions,
     fileName,
   };
@@ -64,6 +66,38 @@ type RunpodSpeechResponse = {
   data?: { audio?: string };
 };
 
+const MAX_TTS_CHUNK_CHARACTERS = 240;
+const MAX_TTS_ATTEMPTS = 2;
+
+const splitNarrationForTts = (text: string) => {
+  const sentences = text.match(/[^.!?]+[.!?]+|[^.!?]+$/g)?.map((sentence) => sentence.trim()).filter(Boolean) ?? [text];
+  const chunks: string[] = [];
+
+  for (const sentence of sentences) {
+    if (sentence.length <= MAX_TTS_CHUNK_CHARACTERS) {
+      chunks.push(sentence);
+      continue;
+    }
+
+    const words = sentence.split(/\s+/);
+    let chunk = '';
+    for (const word of words) {
+      const candidate = chunk ? `${chunk} ${word}` : word;
+      if (candidate.length > MAX_TTS_CHUNK_CHARACTERS && chunk) {
+        chunks.push(chunk);
+        chunk = word;
+      } else {
+        chunk = candidate;
+      }
+    }
+    if (chunk) {
+      chunks.push(chunk);
+    }
+  }
+
+  return chunks;
+};
+
 const normalizeAudioBytes = (payload: RunpodSpeechResponse) => {
   const audio = typeof payload.audio === 'string' ? payload.audio.trim() : '';
   const nested = typeof payload.data?.audio === 'string' ? payload.data.audio.trim() : '';
@@ -72,43 +106,117 @@ const normalizeAudioBytes = (payload: RunpodSpeechResponse) => {
   return Buffer.from(value, /^[0-9a-fA-F]+$/.test(value) ? 'hex' : 'base64');
 };
 
-const requestRunpodSpeech = async (text: string) => {
-  const url = `${env.runpodGatewayBaseUrl.replace(/\/$/, '')}/v1/audio/speech`;
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'tts-1',
-      voice: env.ttsVoiceName,
-      input: text,
-      response_format: env.minimaxSpeechAudioFormat === 'wav' ? 'wav' : 'mp3',
-      speed: 1,
-    }),
-  });
+const getWavDataChunk = (buffer: Buffer) => {
+  if (buffer.length < 44 || buffer.toString('ascii', 0, 4) !== 'RIFF' || buffer.toString('ascii', 8, 12) !== 'WAVE') {
+    throw new AppError('RunPod TTS returned an invalid WAV file.', 502, 'RUNPOD_SPEECH_WAV_INVALID');
+  }
 
-  if (!response.ok) {
+  let offset = 12;
+  while (offset + 8 <= buffer.length) {
+    const chunkId = buffer.toString('ascii', offset, offset + 4);
+    const chunkSize = buffer.readUInt32LE(offset + 4);
+    const dataStart = offset + 8;
+    const dataEnd = dataStart + chunkSize;
+
+    if (dataEnd > buffer.length) {
+      throw new AppError('RunPod TTS returned a truncated WAV file.', 502, 'RUNPOD_SPEECH_WAV_INVALID');
+    }
+    if (chunkId === 'data') {
+      return {
+        data: buffer.subarray(dataStart, dataEnd),
+        dataSizeOffset: offset + 4,
+        header: buffer.subarray(0, dataStart),
+      };
+    }
+
+    offset = dataEnd + (chunkSize % 2);
+  }
+
+  throw new AppError('RunPod TTS WAV file has no audio data chunk.', 502, 'RUNPOD_SPEECH_WAV_INVALID');
+};
+
+export const mergeWavBuffers = (buffers: Buffer[]) => {
+  if (buffers.length === 0) {
+    throw new AppError('RunPod TTS returned no audio chunks.', 502, 'RUNPOD_SPEECH_AUDIO_MISSING');
+  }
+
+  const chunks = buffers.map(getWavDataChunk);
+  const referenceHeader = chunks[0].header;
+  const dataSizeOffset = chunks[0].dataSizeOffset;
+
+  for (const chunk of chunks.slice(1)) {
+    if (!chunk.header.equals(referenceHeader)) {
+      const referenceFormat = referenceHeader.subarray(12, dataSizeOffset - 4);
+      const chunkFormat = chunk.header.subarray(12, chunk.dataSizeOffset - 4);
+      if (!chunkFormat.equals(referenceFormat)) {
+        throw new AppError('RunPod TTS returned incompatible WAV chunks.', 502, 'RUNPOD_SPEECH_WAV_INCOMPATIBLE');
+      }
+    }
+  }
+
+  const audioData = Buffer.concat(chunks.map((chunk) => chunk.data));
+  const header = Buffer.from(referenceHeader);
+  header.writeUInt32LE(audioData.length, dataSizeOffset);
+  header.writeUInt32LE(header.length + audioData.length - 8, 4);
+  return Buffer.concat([header, audioData]);
+};
+
+const requestRunpodSpeechChunk = async (text: string, chunkIndex: number) => {
+  const url = `${getRunpodGatewayBaseUrl()}/v1/audio/speech`;
+  for (let attempt = 1; attempt <= MAX_TTS_ATTEMPTS; attempt += 1) {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: env.runpodTtsModel,
+        voice: env.runpodTtsVoiceName,
+        input: text,
+        response_format: 'wav',
+        speed: 1,
+      }),
+    });
+
+    if (response.ok) {
+      const contentType = response.headers.get('content-type') ?? '';
+      if (contentType.includes('audio/')) {
+        return Buffer.from(await response.arrayBuffer());
+      }
+
+      const payload = (await response.json()) as RunpodSpeechResponse;
+      const audioBuffer = normalizeAudioBytes(payload);
+      if (audioBuffer) {
+        return audioBuffer;
+      }
+      throw new AppError('RunPod speech request did not return audio data.', 502, 'RUNPOD_SPEECH_AUDIO_MISSING');
+    }
+
     const bodyText = await response.text();
-    throw new AppError(
-      `Runpod speech request failed with status ${response.status}${bodyText ? `: ${bodyText}` : ''}.`,
-      502,
-      'RUNPOD_SPEECH_CREATE_FAILED',
-    );
+    const retryable = response.status === 502 || response.status === 503 || response.status === 504;
+    if (!retryable || attempt === MAX_TTS_ATTEMPTS) {
+      throw new AppError(
+        `RunPod speech chunk ${chunkIndex + 1} failed with status ${response.status}${bodyText ? `: ${bodyText}` : ''}.`,
+        502,
+        'RUNPOD_SPEECH_CREATE_FAILED',
+      );
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 3000));
   }
 
-  const contentType = response.headers.get('content-type') ?? '';
-  if (contentType.includes('audio/')) {
-    return Buffer.from(await response.arrayBuffer());
+  throw new AppError('RunPod speech generation failed unexpectedly.', 502, 'RUNPOD_SPEECH_CREATE_FAILED');
+};
+
+const requestRunpodSpeech = async (text: string) => {
+  const chunks = splitNarrationForTts(text);
+  const audioChunks: Buffer[] = [];
+
+  for (const [chunkIndex, chunk] of chunks.entries()) {
+    audioChunks.push(await requestRunpodSpeechChunk(chunk, chunkIndex));
   }
 
-  const payload = (await response.json()) as RunpodSpeechResponse;
-  const audioBuffer = normalizeAudioBytes(payload);
-  if (!audioBuffer) {
-    throw new AppError('Runpod speech request did not return audio data.', 502, 'RUNPOD_SPEECH_AUDIO_MISSING');
-  }
-
-  return audioBuffer;
+  return mergeWavBuffers(audioChunks);
 };
 
 export const generateNarrationAudio = async ({ text, topic }: { text: string; topic: string }) => {
@@ -118,8 +226,5 @@ export const generateNarrationAudio = async ({ text, topic }: { text: string; to
   }
 
   const audioBuffer = await requestRunpodSpeech(normalizedText);
-  const extension = env.minimaxSpeechAudioFormat;
-  const contentType = extension === 'wav' ? 'audio/wav' : extension === 'ogg' ? 'audio/ogg' : 'audio/mpeg';
-
-  return saveNarrationAudio({ audioBuffer, contentType, topic });
+  return saveNarrationAudio({ audioBuffer, contentType: 'audio/wav', topic });
 };

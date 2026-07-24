@@ -55,7 +55,8 @@ export const normalizePromptScene = (value: string) => {
     .replace(/[;,.:\-\s]*$/g, '');
 
   for (const forbiddenPhrase of FORBIDDEN_PROMPT_PHRASES) {
-    const pattern = new RegExp(forbiddenPhrase.replace(/\s+/g, '\\s+'), 'gi');
+    const prefix = forbiddenPhrase === 'photorealistic' ? '(?<!non[-\\s])' : '';
+    const pattern = new RegExp(`${prefix}${forbiddenPhrase.replace(/\s+/g, '\\s+')}`, 'gi');
     normalized = normalized.replace(pattern, ' ').replace(/\s{2,}/g, ' ').trim();
   }
 

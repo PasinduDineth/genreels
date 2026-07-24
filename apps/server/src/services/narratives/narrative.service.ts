@@ -1,5 +1,5 @@
 import { AppError } from '../../lib/app-error.js';
-import { pollinationsClient } from '../pollinations/pollinations.client.js';
+import { runpodLlmClient } from '../runpod/runpod-llm.client.js';
 
 const MIN_WORDS = 150;
 const MAX_WORDS = 180;
@@ -75,7 +75,7 @@ export const generateNarrative = async ({ topic }: { topic: string }) => {
   let lastValidationError: AppError | null = null;
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
-    const rawNarrative = await pollinationsClient.generateNarrativeText({
+    const rawNarrative = await runpodLlmClient.generateNarrativeText({
       topic: normalizedTopic,
       feedback,
     });

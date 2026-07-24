@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import JSZip from 'jszip';
 import type { Caption } from '@remotion/captions';
-import { env } from '../../config/env.js';
+import { getMediaPublicBaseUrl, getMediaPublicUrl } from '../../config/media-url.js';
 import { AppError } from '../../lib/app-error.js';
 
 const currentDirectory = path.dirname(fileURLToPath(import.meta.url));
@@ -82,14 +82,13 @@ const sanitizeSegment = (value: string) => {
 };
 
 const toPublicUrl = (kind: 'audio' | 'image' | 'video', fileName: string) => {
-  const baseUrl = env.runpodGatewayBaseUrl.replace(/\/$/, '');
   const route =
     kind === 'audio'
       ? 'generated-audio'
       : kind === 'image'
         ? 'generated-images'
         : 'generated-videos';
-  return `${baseUrl}/${route}/${fileName}`;
+  return getMediaPublicUrl(`${route}/${fileName}`);
 };
 
 const ensureLocalManagedUrl = (assetUrl: string, kind: 'audio' | 'image' | 'video') => {
@@ -101,7 +100,7 @@ const ensureLocalManagedUrl = (assetUrl: string, kind: 'audio' | 'image' | 'vide
         ? '/generated-images/'
         : '/generated-videos/';
 
-  if (parsed.origin !== env.runpodGatewayBaseUrl.replace(/\/$/, '') || !parsed.pathname.startsWith(expectedPathPrefix)) {
+  if (parsed.origin !== new URL(getMediaPublicBaseUrl()).origin || !parsed.pathname.startsWith(expectedPathPrefix)) {
     throw new AppError(
       `Only locally managed ${kind} assets can be bundled.`,
       400,

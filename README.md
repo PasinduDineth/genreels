@@ -1,16 +1,31 @@
 # Genreels
 
-MVP TikTok shorts generator built with React, Node.js, MiniMax, and Remotion.
+MVP TikTok shorts generator built with React, Node.js, RunPod-hosted generation services, and Remotion.
 
 ## Planned flow
 
 1. Enter a story topic.
 2. Generate a documentary-style narrative plus narration audio and captions.
-3. Generate a documentary-style narrative with MiniMax text generation.
-4. Generate 10 constrained image prompts with MiniMax text generation.
-5. Generate 10 images from those prompts with MiniMax image generation.
+3. Generate a documentary-style narrative with the RunPod-hosted LLM.
+4. Generate 10 constrained image prompts with the RunPod-hosted LLM.
+5. Generate 10 images through the RunPod gateway.
 6. Render a 9:16 short with Remotion.
 7. Preview prompts, images, and the final video in the UI.
+
+## Local development
+
+1. Copy `.env.example` to `.env`.
+2. Set `RUNPOD_GATEWAY_BASE_URL` to the reachable URL of the RunPod gateway.
+3. Run `npm install`.
+4. Start the API with `npm run dev:server`.
+5. Start the UI in another terminal with `npm run dev:web`.
+
+The Node API listens on `http://localhost:4000` and the Vite UI on
+`http://localhost:5173` by default. All LLM, speech, image, and scene-video
+generation requests go through `RUNPOD_GATEWAY_BASE_URL`; Genreels no longer
+loads provider API keys or calls MiniMax, OpenRouter, or Pollinations directly.
+Generated media downloaded or rendered by Genreels is served by the Node API
+under `PUBLIC_BASE_URL` (for example, `http://localhost:4000/generated-audio/...`).
 
 ## Bundle workflow
 

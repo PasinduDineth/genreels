@@ -583,7 +583,7 @@ export function useGenerator() {
       if (scenesMissingVideo.length > 0) {
         pushStatus(
           'info',
-          `Generating MiniMax scene videos for ${scenesMissingVideo.length} frame${scenesMissingVideo.length === 1 ? '' : 's'} before the final render.`,
+          `Generating RunPod scene videos for ${scenesMissingVideo.length} frame${scenesMissingVideo.length === 1 ? '' : 's'} before the final render.`,
         );
       } else {
         pushStatus('info', 'All scene videos are already ready. Starting the final render.');

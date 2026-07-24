@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { asyncHandler } from '../lib/async-handler.js';
 import { generateSceneVideoPreview } from '../services/videos/scene-video.service.js';
+import { switchRunpodMode } from '../services/runpod/runpod-mode.service.js';
 
 export const createSceneVideosRouter = () => {
   const router = Router();
@@ -12,6 +13,7 @@ export const createSceneVideosRouter = () => {
         : 0;
     const image = typeof request.body?.image === 'object' && request.body.image !== null ? request.body.image : {};
 
+    await switchRunpodMode('video');
     const result = await generateSceneVideoPreview({
       image,
       sceneIndex,
